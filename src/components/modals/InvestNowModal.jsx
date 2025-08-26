@@ -1,0 +1,183 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle,
+  DialogFooter
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Info } from 'lucide-react';
+import { UserInvestment } from '@/api/entities';
+import { User } from '@/api/entities';
+import { Transaction } from '@/api/entities';
+
+const formatCurrency = (amount) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+
+export default function InvestNowModal({ isOpen, onClose, plan, user, onSuccess, onFeedback }) {
+  const [amount, setAmount] = useState('');
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [calculated, setCalculated] = useState({ profit: 0, total: 0, maturity: '' });
+
+  useEffect(() => {
+    if (plan) {
+      const minAmount = plan.min_deposit || 0;
+      setAmount(minAmount.toString());
+      calculateReturns(minAmount);
+    }
+  }, [plan]);
+
+  useEffect(() => {
+    if (amount) {
+      calculateReturns(parseFloat(amount));
+    } else {
+      setCalculated({ profit: 0, total: 0, maturity: '' });
+    }
+  }, [amount, plan]);
+  
+  const calculateReturns = (investmentAmount) => {
+    if (!plan || isNaN(investmentAmount) || investmentAmount <= 0) {
+      setCalculated({ profit: 0, total: 0, maturity: '' });
+      return;
+    }
+    const profit = investmentAmount * (plan.roi_percentage / 100);
+    const total = investmentAmount + profit;
+    const maturityDate = new Date();
+    maturityDate.setDate(maturityDate.getDate() + plan.duration_days);
+    setCalculated({
+      profit: profit,
+      total: total,
+      maturity: maturityDate.toLocaleDateString()
+    });
+  };
+
+  const validateAmount = (value) => {
+    const numValue = parseFloat(value);
+    if (isNaN(numValue)) {
+      setError('Please enter a valid number.');
+      return;
+    }
+    if (numValue < plan.min_deposit) {
+      setError(`Amount must be at least ${formatCurrency(plan.min_deposit)}.`);
+      return;
+    }
+    if (numValue > plan.max_deposit) {
+      setError(`Amount cannot exceed ${formatCurrency(plan.max_deposit)}.`);
+      return;
+    }
+    if (user && numValue > user.trading_wallet) {
+      setError('Insufficient funds in your trading wallet.');
+      return;
+    }
+    setError('');
+  };
+
+  const handleAmountChange = (e) => {
+    const value = e.target.value;
+    setAmount(value);
+    validateAmount(value);
+  };
+
+  const handleSubmit = async () => {
+    validateAmount(amount);
+    if (error || !amount) {
+      onFeedback('error', 'Invalid Amount', error || 'Please enter a valid investment amount.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    const investmentAmount = parseFloat(amount);
+    
+    try {
+      const newTradingBalance = user.trading_wallet - investmentAmount;
+      const newTotalBalance = user.total_balance - investmentAmount;
+
+      await User.update(user.id, {
+        trading_wallet: newTradingBalance,
+        total_balance: newTotalBalance
+      });
+      
+      const maturityDate = new Date();
+      maturityDate.setDate(maturityDate.getDate() + plan.duration_days);
+
+      await UserInvestment.create({
+        user_email: user.email,
+        plan_id: plan.id,
+        plan_name: plan.name,
+        amount_invested: investmentAmount,
+        roi_percentage: plan.roi_percentage,
+        duration_days: plan.duration_days,
+        expected_profit: calculated.profit,
+        maturity_date: maturityDate.toISOString(),
+        status: 'active'
+      });
+      
+      await Transaction.create({
+        type: 'transfer',
+        amount: investmentAmount,
+        status: 'completed',
+        description: `Investment in ${plan.name}`,
+        user_email: user.email,
+        created_by: user.email,
+      });
+
+      onSuccess();
+    } catch (err) {
+      console.error('Investment failed:', err);
+      onFeedback('error', 'Investment Failed', 'An unexpected error occurred. Please try again.');
+      // Revert balance if investment fails - ideally in a backend transaction
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!plan) return null;
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Invest in {plan.name}</DialogTitle>
+        </DialogHeader>
+        
+        <div className="space-y-4">
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertDescription>
+              Investment amount will be deducted from your Trading Wallet: <strong>{formatCurrency(user?.trading_wallet || 0)}</strong>
+            </AlertDescription>
+          </Alert>
+
+          <div className="p-4 bg-gray-50 rounded-lg">
+            <div className="flex justify-between text-sm mb-2"><span>ROI:</span> <strong>{plan.roi_percentage}%</strong></div>
+            <div className="flex justify-between text-sm mb-2"><span>Duration:</span> <strong>{plan.duration_days} days</strong></div>
+            <div className="flex justify-between text-sm"><span>Min - Max:</span> <strong>{formatCurrency(plan.min_deposit)} - {formatCurrency(plan.max_deposit)}</strong></div>
+          </div>
+          
+          <div>
+            <Label htmlFor="amount">Investment Amount ($)</Label>
+            <Input id="amount" type="number" value={amount} onChange={handleAmountChange} placeholder="Enter amount" />
+            {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
+          </div>
+
+          <div className="p-4 border rounded-lg">
+             <div className="flex justify-between text-sm mb-2"><span>Expected Profit:</span> <strong className="text-green-600">+{formatCurrency(calculated.profit)}</strong></div>
+             <div className="flex justify-between text-sm mb-2"><span>Total Return:</span> <strong>{formatCurrency(calculated.total)}</strong></div>
+             <div className="flex justify-between text-sm"><span>Maturity Date:</span> <strong>{calculated.maturity}</strong></div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={isSubmitting || !!error}>
+            {isSubmitting ? 'Processing...' : 'Invest Now'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
