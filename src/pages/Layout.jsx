@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { User } from '@/api/entities';
-import SuspensionModal from './components/modals/SuspensionModal';
-import { LanguageProvider } from './components/LanguageProvider';
-import { AppProvider } from './components/AppProvider';
-import ChatWidget from './components/ChatWidget'; // Added import for ChatWidget
+import SuspensionModal from '@/components/modals/SuspensionModal';
+import { LanguageProvider } from '@/components/LanguageProvider';
+import { AppProvider } from '@/components/AppProvider';
+import ChatWidget from '@/components/ChatWidget'; // Added import for ChatWidget
 
 export default function Layout({ children, currentPageName }) {
   const [isSuspended, setIsSuspended] = useState(false);
