@@ -28,6 +28,12 @@ import SuperAdashboard from "./SuperAdashboard";
 
 import AdminEmailManagement from "./AdminEmailManagement";
 
+import Auth from "./Auth";
+
+import AdminAuth from "./AdminAuth";
+
+import SuperAdminAuth from "./SuperAdminAuth";
+
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
 
 const PAGES = {
@@ -59,6 +65,12 @@ const PAGES = {
     SuperAdashboard: SuperAdashboard,
     
     AdminEmailManagement: AdminEmailManagement,
+    
+    Auth: Auth,
+    
+    AdminAuth: AdminAuth,
+    
+    SuperAdminAuth: SuperAdminAuth,
     
 }
 
@@ -114,6 +126,12 @@ function PagesContent() {
                 <Route path="/SuperAdashboard" element={<SuperAdashboard />} />
                 
                 <Route path="/AdminEmailManagement" element={<AdminEmailManagement />} />
+                
+                <Route path="/Auth" element={<Auth />} />
+                
+                <Route path="/AdminAuth" element={<AdminAuth />} />
+                
+                <Route path="/SuperAdminAuth" element={<SuperAdminAuth />} />
                 
             </Routes>
         </Layout>
