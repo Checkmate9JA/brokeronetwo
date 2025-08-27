@@ -17,6 +17,32 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
   const [supabaseError, setSupabaseError] = useState(false)
 
+  const fetchUserProfile = useCallback(async (email) => {
+    if (!email) {
+      setUserProfile(null)
+      return
+    }
+    
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email)
+        .single()
+
+      if (error) {
+        console.error('Error fetching user profile:', error)
+        setUserProfile(null)
+        return
+      }
+
+      setUserProfile(data)
+    } catch (error) {
+      console.error('Error fetching user profile:', error)
+      setUserProfile(null)
+    }
+  }, [])
+
   useEffect(() => {
     // Get initial session
     const getSession = async () => {
@@ -66,32 +92,6 @@ export const AuthProvider = ({ children }) => {
 
     return () => subscription.unsubscribe()
   }, [fetchUserProfile])
-
-  const fetchUserProfile = useCallback(async (email) => {
-    if (!email) {
-      setUserProfile(null)
-      return
-    }
-    
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('email', email)
-        .single()
-
-      if (error) {
-        console.error('Error fetching user profile:', error)
-        setUserProfile(null)
-        return
-      }
-
-      setUserProfile(data)
-    } catch (error) {
-      console.error('Error fetching user profile:', error)
-      setUserProfile(null)
-    }
-  }, [])
 
   const signIn = async (email, password) => {
     try {
