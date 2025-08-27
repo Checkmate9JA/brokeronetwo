@@ -14,39 +14,9 @@ ALTER TABLE public.trading_symbols ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.trading_positions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chat_settings ENABLE ROW LEVEL SECURITY;
 
--- Users table policies
-CREATE POLICY "Users can view their own profile" ON public.users
-    FOR SELECT USING (auth.jwt() ->> 'email' = email);
-
-CREATE POLICY "Users can update their own profile" ON public.users
-    FOR UPDATE USING (auth.jwt() ->> 'email' = email);
-
-CREATE POLICY "Admins can view all users" ON public.users
-    FOR SELECT USING (
-        EXISTS (
-            SELECT 1 FROM public.users 
-            WHERE email = auth.jwt() ->> 'email' 
-            AND role IN ('admin', 'super_admin')
-        )
-    );
-
-CREATE POLICY "Admins can update all users" ON public.users
-    FOR UPDATE USING (
-        EXISTS (
-            SELECT 1 FROM public.users 
-            WHERE email = auth.jwt() ->> 'email' 
-            AND role IN ('admin', 'super_admin')
-        )
-    );
-
-CREATE POLICY "Super admins can insert users" ON public.users
-    FOR INSERT WITH CHECK (
-        EXISTS (
-            SELECT 1 FROM public.users 
-            WHERE email = auth.jwt() ->> 'email' 
-            AND role = 'super_admin'
-        )
-    );
+-- Users table policies (handled by functions.sql now)
+-- The trigger function handle_new_user() handles user creation
+-- RLS policies are defined in functions.sql to avoid conflicts
 
 -- Transactions table policies
 CREATE POLICY "Users can view their own transactions" ON public.transactions

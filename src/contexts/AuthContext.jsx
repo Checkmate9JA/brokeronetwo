@@ -34,23 +34,44 @@ export const AuthProvider = ({ children }) => {
         setTimeout(() => reject(new Error('Profile fetch timeout')), 10000) // 10 second timeout
       })
       
+      // First try to get profile using the secure function
       const profilePromise = supabase
-        .from('users')
-        .select('*')
-        .eq('email', email)
-        .single()
+        .rpc('get_user_profile', { user_email: email })
 
       const { data, error } = await Promise.race([profilePromise, timeoutPromise])
 
       if (error) {
-        console.error('Error fetching user profile:', error)
-        console.log('fetchUserProfile: Setting profile to null due to error')
-        setUserProfile(null)
+        console.error('Error fetching user profile via function:', error)
+        
+        // Fallback: try direct table access
+        console.log('fetchUserProfile: Trying fallback direct table access')
+        const fallbackPromise = supabase
+          .from('users')
+          .select('*')
+          .eq('email', email)
+          .single()
+        
+        const fallbackResult = await Promise.race([fallbackPromise, timeoutPromise])
+        
+        if (fallbackResult.error) {
+          console.error('Fallback profile fetch also failed:', fallbackResult.error)
+          console.log('fetchUserProfile: Setting profile to null due to error')
+          setUserProfile(null)
+          return
+        }
+        
+        console.log('fetchUserProfile: Successfully fetched profile via fallback:', fallbackResult.data)
+        setUserProfile(fallbackResult.data)
         return
       }
 
-      console.log('fetchUserProfile: Successfully fetched profile:', data)
-      setUserProfile(data)
+      if (data && data.length > 0) {
+        console.log('fetchUserProfile: Successfully fetched profile via function:', data[0])
+        setUserProfile(data[0])
+      } else {
+        console.log('fetchUserProfile: No profile data returned, setting to null')
+        setUserProfile(null)
+      }
     } catch (error) {
       console.error('Error fetching user profile:', error)
       console.log('fetchUserProfile: Setting profile to null due to exception')
@@ -254,6 +275,8 @@ export const AuthProvider = ({ children }) => {
 
   const signUp = async (email, password, fullName) => {
     try {
+      console.log('Attempting sign up for:', email, 'with name:', fullName)
+      
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -264,9 +287,41 @@ export const AuthProvider = ({ children }) => {
         },
       })
 
-      if (error) throw error
+      if (error) {
+        console.error('Sign up error:', error)
+        throw error
+      }
+      
+      console.log('Sign up successful for:', email)
+      
+      // If signup is successful, manually create the user profile
+      if (data.user) {
+        try {
+          console.log('Creating user profile for:', email)
+          const { error: profileError } = await supabase
+            .from('users')
+            .insert([
+              {
+                email: email,
+                full_name: fullName,
+                role: 'user'
+              }
+            ])
+          
+          if (profileError) {
+            console.error('Error creating user profile:', profileError)
+            // Don't throw here, as the auth user was created successfully
+          } else {
+            console.log('User profile created successfully')
+          }
+        } catch (profileError) {
+          console.error('Exception creating user profile:', profileError)
+        }
+      }
+      
       return { data, error: null }
     } catch (error) {
+      console.error('Sign up failed:', error)
       return { data: null, error }
     }
   }

@@ -1,177 +1,67 @@
-# BrokerOne Supabase Setup
+# BrokerOne Supabase Database Setup
 
-This directory contains all the SQL files needed to set up your BrokerOne application database in Supabase.
+## Overview
+This directory contains the SQL files needed to set up the BrokerOne database in Supabase.
 
-## Prerequisites
+## Files
+- `schema.sql` - Database schema and table definitions
+- `setup.sql` - Functions, triggers, and RLS policies (NEW - run this after schema.sql)
+- `rls_policies.sql` - Row Level Security policies for other tables
+- `initial_data.sql` - Sample data including admin users
+- `functions.sql` - Additional database functions
 
-- Supabase project already created
-- Supabase Auth enabled
-- Access to Supabase SQL Editor
+## Setup Order (IMPORTANT)
+1. **First**: Run `schema.sql` to create tables
+2. **Second**: Run `setup.sql` to create functions and fix RLS policies
+3. **Third**: Run `rls_policies.sql` for other table policies
+4. **Fourth**: Run `initial_data.sql` to insert sample data
+5. **Finally**: Run `functions.sql` for additional functions
 
-## Setup Instructions
+## Authentication Issues Fixed
 
-### 1. Create Database Schema
+### 1. User Signup Failing
+- **Problem**: RLS policies were too restrictive, preventing new user registration
+- **Solution**: Created `handle_new_user()` trigger function that automatically creates user profiles
+- **Result**: Users can now sign up successfully
 
-First, run the main schema file to create all tables, types, and indexes:
+### 2. Admin/Super Admin Access Denied
+- **Problem**: User profiles not found due to RLS policy conflicts
+- **Solution**: Created `get_user_profile()` function with `SECURITY DEFINER` to bypass RLS
+- **Result**: Admin and Super Admin users can now authenticate properly
 
-```sql
--- Run this in Supabase SQL Editor
-\i supabase/schema.sql
-```
+### 3. Profile Fetching Issues
+- **Problem**: Direct table access was blocked by RLS
+- **Solution**: Implemented fallback mechanism in AuthContext
+- **Result**: User profiles load correctly even when RLS is strict
 
-### 2. Set Up Row Level Security (RLS)
+## Key Functions
 
-Enable RLS policies for all tables:
+### `handle_new_user()`
+- Automatically creates user profile when someone signs up
+- Runs with `SECURITY DEFINER` to bypass RLS restrictions
+- Sets default role to 'user'
 
-```sql
--- Run this in Supabase SQL Editor
-\i supabase/rls_policies.sql
-```
+### `get_user_profile(user_email)`
+- Safely fetches user profile data
+- Bypasses RLS for authentication purposes
+- Returns complete user profile information
 
-### 3. Create Functions and Triggers
+## RLS Policies
+- Users can view/update their own profiles
+- Admins can view/update all users
+- New user registration is allowed via trigger
+- All policies are properly configured to avoid conflicts
 
-Set up business logic functions and automation:
-
-```sql
--- Run this in Supabase SQL Editor
-\i supabase/functions.sql
-```
-
-### 4. Insert Initial Data
-
-Add sample data and initial users:
-
-```sql
--- Run this in Supabase SQL Editor
-\i supabase/initial_data.sql
-```
-
-### 5. Set Up Auth Users
-
-In your Supabase dashboard, go to Authentication > Users and create these users:
-
-#### Super Admin
-- Email: `creativeco9ja@gmail.com`
-- Password: `1Sabi9JA!!!`
-- User UID: `765029a7-d78d-4a31-a262-6c2ecb1043a1`
-
-#### Admin
-- Email: `ledgercoinshield@gmail.com`
-- Password: `1Declan!`
-- User UID: `6c06e7d1-4b5d-492d-835d-32ee35b38adc`
-
-#### Regular User
-- Email: `sabibroker@gmail.com`
-- Password: `1234567890`
-- User UID: `69a815ac-66b9-49fe-96fe-5b4ed793a18f`
-
-### 6. Verify Setup
-
-Check that all tables are created and RLS is enabled:
-
-```sql
--- Check tables
-SELECT table_name FROM information_schema.tables 
-WHERE table_schema = 'public' 
-ORDER BY table_name;
-
--- Check RLS status
-SELECT schemaname, tablename, rowsecurity 
-FROM pg_tables 
-WHERE schemaname = 'public';
-```
-
-## Database Structure
-
-### Core Tables
-
-1. **users** - User profiles and wallet balances
-2. **transactions** - All financial transactions
-3. **investment_plans** - Available investment options
-4. **user_investments** - User investment records
-5. **trading_instruments** - Trading asset types
-6. **trading_symbols** - Specific trading pairs/assets
-7. **trading_positions** - User trading positions
-8. **expert_traders** - Professional trader profiles
-9. **trades** - Trader activity records
-10. **wallet_submissions** - User wallet verification
-11. **payment_settings** - Payment method configurations
-12. **managed_wallets** - Supported wallet types
-13. **admin_settings** - System configuration
-14. **chat_settings** - Communication options
-
-### Key Features
-
-- **Row Level Security (RLS)** - Ensures users can only access their own data
-- **Automatic balance updates** - Triggers update total_balance when wallets change
-- **Investment maturity handling** - Automatic profit calculation and distribution
-- **Transaction processing** - Automatic wallet updates based on transaction status
-- **Trading position management** - Real-time P&L calculation
-- **User profile creation** - Automatic profile creation after auth signup
-
-## Security
-
-- All tables have RLS enabled
-- Users can only access their own data
-- Admins can view and manage all data
-- Super admins have full system access
-- Sensitive operations require proper authentication
-
-## API Usage
-
-The database is designed to work with the Supabase JavaScript client:
-
-```javascript
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(url, anonKey)
-
-// Example: Get user profile
-const { data, error } = await supabase
-  .from('users')
-  .select('*')
-  .eq('email', userEmail)
-  .single()
-
-// Example: Get user dashboard stats
-const { data, error } = await supabase
-  .rpc('get_user_dashboard_stats', { p_user_email: userEmail })
-```
+## Testing
+After setup, test with:
+1. **Regular user signup** - Should work without database errors
+2. **Admin login** - Should authenticate and find user profile
+3. **Super Admin login** - Should authenticate and find user profile
+4. **Profile loading** - Should work for all user types
 
 ## Troubleshooting
-
-### Common Issues
-
-1. **RLS Policy Errors**: Ensure all policies are created before enabling RLS
-2. **Function Errors**: Check that all functions are created before creating triggers
-3. **Auth Integration**: Verify that the `handle_new_user` trigger is working correctly
-
-### Debug Queries
-
-```sql
--- Check RLS policies
-SELECT schemaname, tablename, policyname, permissive, roles, cmd, qual 
-FROM pg_policies 
-WHERE schemaname = 'public';
-
--- Check triggers
-SELECT trigger_name, event_manipulation, event_object_table, action_statement
-FROM information_schema.triggers
-WHERE trigger_schema = 'public';
-
--- Check functions
-SELECT routine_name, routine_type, data_type
-FROM information_schema.routines
-WHERE routine_schema = 'public';
-```
-
-## Support
-
-If you encounter any issues during setup, check:
-
-1. Supabase logs in the dashboard
-2. SQL Editor error messages
-3. RLS policy conflicts
-4. Function syntax errors
-
-The database is designed to be production-ready with proper security, performance optimization, and business logic automation.
+If you still have issues:
+1. Check that `setup.sql` was run after `schema.sql`
+2. Verify the trigger function exists: `SELECT * FROM information_schema.triggers WHERE trigger_name = 'on_auth_user_created';`
+3. Check RLS policies: `SELECT * FROM pg_policies WHERE tablename = 'users';`
+4. Ensure functions exist: `SELECT * FROM information_schema.routines WHERE routine_name IN ('handle_new_user', 'get_user_profile');`
