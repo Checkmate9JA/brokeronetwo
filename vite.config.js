@@ -21,4 +21,8 @@ export default defineConfig({
       },
     },
   },
+  define: {
+    'import.meta.env.VITE_BASE44_APP_ID': JSON.stringify('68ad67abfba2e0747cb1f62c'),
+    'import.meta.env.VITE_IS_LOCAL_DEV': JSON.stringify('true')
+  }
 }) 
