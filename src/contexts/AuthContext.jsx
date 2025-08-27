@@ -17,6 +17,7 @@ export const AuthProvider = ({ children }) => {
   const [userProfile, setUserProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [supabaseError, setSupabaseError] = useState(false)
+  const [forceRedirect, setForceRedirect] = useState(false)
 
   const fetchUserProfile = useCallback(async (email) => {
     if (!email) {
@@ -45,9 +46,29 @@ export const AuthProvider = ({ children }) => {
   }, [])
 
   useEffect(() => {
+    // Force clear any existing mock users first
+    const forceClearMockUsers = async () => {
+      try {
+        // Check if there's any existing session
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.user?.email?.includes('@localhost')) {
+          console.log('Force clearing mock user session')
+          await supabase.auth.signOut()
+          // Clear any stored tokens
+          localStorage.removeItem('supabase.auth.token')
+          sessionStorage.clear()
+        }
+      } catch (error) {
+        console.error('Error clearing mock users:', error)
+      }
+    }
+
     // Get initial session
     const getSession = async () => {
       console.log('Getting initial session...')
+      
+      // Force clear mock users first
+      await forceClearMockUsers()
       
       // Add timeout to prevent infinite loading
       const timeoutId = setTimeout(() => {
@@ -61,10 +82,12 @@ export const AuthProvider = ({ children }) => {
         console.log('Session user:', session?.user)
         console.log('Session user email:', session?.user?.email)
         
-        // Ensure we don't have any mock users
+        // Double-check: ensure we don't have any mock users
         if (session?.user?.email?.includes('@localhost')) {
-          console.log('Mock user detected, clearing session')
+          console.log('Mock user still detected, forcing logout')
           await supabase.auth.signOut()
+          localStorage.removeItem('supabase.auth.token')
+          sessionStorage.clear()
           setUser(null)
           setUserProfile(null)
         } else {
@@ -103,27 +126,62 @@ export const AuthProvider = ({ children }) => {
           return
         }
         
-        // Ensure we don't have any mock users
+        // Aggressively check for and clear any mock users
         if (session?.user?.email?.includes('@localhost')) {
-          console.log('Mock user detected in auth change, clearing session')
+          console.log('Mock user detected in auth change, forcing logout')
           await supabase.auth.signOut()
+          localStorage.removeItem('supabase.auth.token')
+          sessionStorage.clear()
           setUser(null)
           setUserProfile(null)
+          setLoading(false)
+          return
+        }
+        
+        // Only proceed if we have a valid, non-mock user
+        if (session?.user && !session.user.email.includes('@localhost')) {
+          setUser(session.user)
+          await fetchUserProfile(session.user.email)
         } else {
-          setUser(session?.user ?? null)
-          if (session?.user) {
-            await fetchUserProfile(session.user.email)
-          } else {
-            setUserProfile(null)
-          }
+          setUser(null)
+          setUserProfile(null)
         }
         
         setLoading(false)
       }
     )
 
-    return () => subscription.unsubscribe()
+    return () => {
+      subscription.unsubscribe()
+      // Clean up any remaining state on unmount
+      setUser(null)
+      setUserProfile(null)
+      setLoading(false)
+      setForceRedirect(false)
+    }
   }, [fetchUserProfile])
+
+  // Force redirect to Auth if no valid user after loading
+  useEffect(() => {
+    if (!loading && !user && !forceRedirect) {
+      console.log('No valid user found after loading, forcing redirect to Auth')
+      setForceRedirect(true)
+      // Clear any remaining tokens
+      localStorage.removeItem('supabase.auth.token')
+      sessionStorage.clear()
+      // Force redirect
+      window.location.href = '/Auth'
+    }
+  }, [loading, user, forceRedirect])
+
+  // Additional safety check: if we're on any page other than Auth and no user, redirect
+  useEffect(() => {
+    if (!loading && !user && window.location.pathname !== '/Auth' && window.location.pathname !== '/AdminAuth' && window.location.pathname !== '/SuperAdminAuth') {
+      console.log('User not authenticated and not on auth page, forcing redirect to Auth')
+      setForceRedirect(true)
+      window.location.href = '/Auth'
+    }
+  }, [loading, user])
 
   const signIn = async (email, password) => {
     try {
@@ -182,9 +240,16 @@ export const AuthProvider = ({ children }) => {
       setUser(null)
       setUserProfile(null)
       
-      // Clear any stored session data
+      // Aggressively clear all stored data
       localStorage.removeItem('supabase.auth.token')
+      localStorage.removeItem('supabase.auth.refreshToken')
+      localStorage.removeItem('supabase.auth.expiresAt')
       sessionStorage.clear()
+      
+      // Clear any cookies that might persist
+      document.cookie.split(";").forEach(function(c) { 
+        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+      });
       
       // Then clear Supabase session
       const { error } = await supabase.auth.signOut()
@@ -193,7 +258,7 @@ export const AuthProvider = ({ children }) => {
         // Even if Supabase fails, we've cleared local state
       }
       
-      console.log('Sign out successful - state cleared')
+      console.log('Sign out successful - all state cleared')
       
       // Force a page reload to ensure clean state
       window.location.href = '/Auth'
@@ -204,6 +269,8 @@ export const AuthProvider = ({ children }) => {
       // Even on error, clear state and redirect
       setUser(null)
       setUserProfile(null)
+      localStorage.removeItem('supabase.auth.token')
+      sessionStorage.clear()
       window.location.href = '/Auth'
       return { success: true }
     }
@@ -214,6 +281,7 @@ export const AuthProvider = ({ children }) => {
     userProfile,
     loading,
     supabaseError,
+    forceRedirect,
     signIn,
     signUp,
     signOut,

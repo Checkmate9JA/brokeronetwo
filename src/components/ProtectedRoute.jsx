@@ -2,7 +2,7 @@ import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 
 export default function ProtectedRoute({ children, requiredRole = null, redirectTo = '/Auth' }) {
-  const { user, userProfile, loading, supabaseError } = useAuth()
+  const { user, userProfile, loading, supabaseError, forceRedirect } = useAuth()
 
   console.log('ProtectedRoute state:', { 
     user: user ? { id: user.id, email: user.email } : null, 
@@ -10,8 +10,15 @@ export default function ProtectedRoute({ children, requiredRole = null, redirect
     loading, 
     requiredRole, 
     redirectTo, 
-    supabaseError 
+    supabaseError,
+    forceRedirect
   })
+
+  // If force redirect is active, redirect immediately
+  if (forceRedirect) {
+    console.log('ProtectedRoute: Force redirect active, redirecting to:', redirectTo)
+    return <Navigate to={redirectTo} replace />
+  }
 
   // Show loading while checking authentication
   if (loading) {
