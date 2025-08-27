@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect } from 'react';
-import { User } from '@/api/entities';
 import { Transaction } from '@/api/entities';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -55,6 +54,7 @@ import WalletActivationStatusModal from '../components/modals/WalletActivationSt
 import AccountModal from '../components/modals/AccountModal';
 import { useLanguage } from '../components/LanguageProvider';
 import { useApp } from '../components/AppProvider';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
@@ -89,13 +89,21 @@ export default function Dashboard() {
 
   const { t } = useLanguage();
   const { appConfig } = useApp();
+  const { user: authUser, userProfile, signOut } = useAuth();
 
   // Debug logging to verify context
   console.log('Dashboard rendering with app:', appConfig);
 
   useEffect(() => {
-    loadDashboardData();
-  }, [appConfig.id]); // Reload data when appConfig.id changes
+    // Only load dashboard data if we have an authenticated user
+    if (authUser && authUser.email) {
+      console.log('Dashboard: Authenticated user found, loading data');
+      loadDashboardData();
+    } else {
+      console.log('Dashboard: No authenticated user, skipping data load');
+      setIsLoading(false);
+    }
+  }, [appConfig.id, authUser]); // Reload data when appConfig.id or authenticated user changes
 
   // Load activation fee from localStorage
   useEffect(() => {
@@ -109,7 +117,12 @@ export default function Dashboard() {
     setIsLoading(true);
     setError(null);
     try {
-      const currentUser = await User.me();
+      // Use the authenticated user from context instead of calling User.me()
+      const currentUser = authUser;
+      
+      if (!currentUser || !currentUser.email) {
+        throw new Error('No authenticated user found');
+      }
       
       // Calculate correct total balance
       const correctTotalBalance = (currentUser.deposit_wallet || 0) + (currentUser.profit_wallet || 0) + (currentUser.trading_wallet || 0);
@@ -142,8 +155,8 @@ export default function Dashboard() {
 
   const handleLogout = async () => {
     try {
-      await User.logout();
-      window.location.reload();
+      await signOut();
+      // The AuthContext will handle the redirect automatically
     } catch (error) {
       console.error('Error logging out:', error);
     }
@@ -253,6 +266,24 @@ export default function Dashboard() {
     );
   }
 
+  // Check if user is authenticated
+  if (!authUser || !authUser.email) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center">
+        <div className="text-center">
+          <div className="text-blue-500 mb-4">
+             <AlertTriangle className="w-12 h-12 mx-auto" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-800 mb-2">Authentication Required</h1>
+          <p className="text-gray-600 mb-6">Please log in to access your dashboard.</p>
+          <Link to="/Auth">
+            <Button>Go to Login</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -310,12 +341,16 @@ export default function Dashboard() {
               </>
             ) : (
               <>
-                <Button variant="ghost" size="sm" className="text-gray-600" onClick={User.login}>
-                    Login
-                </Button>
-                <Button variant="default" size="sm" onClick={User.login}>
-                    Sign Up
-                </Button>
+                <Link to="/Auth">
+                  <Button variant="ghost" size="sm" className="text-gray-600">
+                      Login
+                  </Button>
+                </Link>
+                <Link to="/Auth">
+                  <Button variant="default" size="sm">
+                      Sign Up
+                  </Button>
+                </Link>
               </>
             )}
           </div>

@@ -57,6 +57,8 @@ export const AuthProvider = ({ children }) => {
       try {
         const { data: { session } } = await supabase.auth.getSession()
         console.log('Session result:', session)
+        console.log('Session user:', session?.user)
+        console.log('Session user email:', session?.user?.email)
         
         // Ensure we don't have any mock users
         if (session?.user?.email?.includes('@localhost')) {
@@ -73,6 +75,7 @@ export const AuthProvider = ({ children }) => {
           }
         }
         
+        console.log('Final user state:', { user: session?.user, userProfile: null })
         console.log('Setting loading to false')
         setLoading(false)
       } catch (error) {
