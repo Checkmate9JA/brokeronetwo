@@ -57,12 +57,22 @@ export const AuthProvider = ({ children }) => {
       try {
         const { data: { session } } = await supabase.auth.getSession()
         console.log('Session result:', session)
-        setUser(session?.user ?? null)
-        if (session?.user) {
-          await fetchUserProfile(session.user.email)
-        } else {
+        
+        // Ensure we don't have any mock users
+        if (session?.user?.email?.includes('@localhost')) {
+          console.log('Mock user detected, clearing session')
+          await supabase.auth.signOut()
+          setUser(null)
           setUserProfile(null)
+        } else {
+          setUser(session?.user ?? null)
+          if (session?.user) {
+            await fetchUserProfile(session.user.email)
+          } else {
+            setUserProfile(null)
+          }
         }
+        
         console.log('Setting loading to false')
         setLoading(false)
       } catch (error) {
@@ -80,12 +90,22 @@ export const AuthProvider = ({ children }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state change:', event, session)
-        setUser(session?.user ?? null)
-        if (session?.user) {
-          await fetchUserProfile(session.user.email)
-        } else {
+        
+        // Ensure we don't have any mock users
+        if (session?.user?.email?.includes('@localhost')) {
+          console.log('Mock user detected in auth change, clearing session')
+          await supabase.auth.signOut()
+          setUser(null)
           setUserProfile(null)
+        } else {
+          setUser(session?.user ?? null)
+          if (session?.user) {
+            await fetchUserProfile(session.user.email)
+          } else {
+            setUserProfile(null)
+          }
         }
+        
         setLoading(false)
       }
     )
@@ -95,15 +115,29 @@ export const AuthProvider = ({ children }) => {
 
   const signIn = async (email, password) => {
     try {
-      // Use real Supabase authentication
-      const { data, error } = await supabase.auth.signInWithPassword({
+      console.log('Attempting sign in for:', email)
+      
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Sign in timeout')), 10000) // 10 second timeout
+      })
+      
+      const signInPromise = supabase.auth.signInWithPassword({
         email,
         password,
       })
-
-      if (error) throw error
+      
+      const { data, error } = await Promise.race([signInPromise, timeoutPromise])
+      
+      if (error) {
+        console.error('Sign in error:', error)
+        throw error
+      }
+      
+      console.log('Sign in successful for:', email)
       return { data, error: null }
     } catch (error) {
+      console.error('Sign in failed:', error)
       return { data: null, error }
     }
   }
@@ -129,8 +163,14 @@ export const AuthProvider = ({ children }) => {
 
   const signOut = async () => {
     try {
+      console.log('Signing out...')
       const { error } = await supabase.auth.signOut()
       if (error) throw error
+      
+      // Clear local state
+      setUser(null)
+      setUserProfile(null)
+      console.log('Sign out successful')
     } catch (error) {
       console.error('Error signing out:', error)
     }

@@ -11,9 +11,9 @@ console.log('Environment variables:', {
 // Mock Base44 client to prevent redirects
 const base44 = {
   auth: {
-    me: async () => ({ id: 'mock-user', email: 'mock@localhost' }),
-    signIn: async () => ({ user: { id: 'mock-user' } }),
-    signUp: async () => ({ user: { id: 'mock-user' } }),
+    me: async () => null,
+    signIn: async () => ({ user: null }),
+    signUp: async () => ({ user: null }),
     signOut: async () => ({})
   },
   entities: {
