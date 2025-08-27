@@ -95,6 +95,14 @@ export const AuthProvider = ({ children }) => {
       async (event, session) => {
         console.log('Auth state change:', event, session)
         
+        if (event === 'SIGNED_OUT') {
+          console.log('User signed out, clearing state')
+          setUser(null)
+          setUserProfile(null)
+          setLoading(false)
+          return
+        }
+        
         // Ensure we don't have any mock users
         if (session?.user?.email?.includes('@localhost')) {
           console.log('Mock user detected in auth change, clearing session')
@@ -170,21 +178,34 @@ export const AuthProvider = ({ children }) => {
       console.log('Signing out...')
       console.log('Current user state before logout:', { user, userProfile })
       
-      const { error } = await supabase.auth.signOut()
-      if (error) throw error
-      
-      // Clear local state
+      // Clear local state first
       setUser(null)
       setUserProfile(null)
       
-      console.log('Local state cleared, user:', user, 'userProfile:', userProfile)
-      console.log('Sign out successful')
+      // Clear any stored session data
+      localStorage.removeItem('supabase.auth.token')
+      sessionStorage.clear()
       
-      // Return success status so component can handle redirect
+      // Then clear Supabase session
+      const { error } = await supabase.auth.signOut()
+      if (error) {
+        console.error('Supabase signOut error:', error)
+        // Even if Supabase fails, we've cleared local state
+      }
+      
+      console.log('Sign out successful - state cleared')
+      
+      // Force a page reload to ensure clean state
+      window.location.href = '/Auth'
+      
       return { success: true }
     } catch (error) {
       console.error('Error signing out:', error)
-      return { success: false, error }
+      // Even on error, clear state and redirect
+      setUser(null)
+      setUserProfile(null)
+      window.location.href = '/Auth'
+      return { success: true }
     }
   }
 

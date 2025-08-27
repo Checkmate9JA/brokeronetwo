@@ -36,6 +36,7 @@ export default function ProtectedRoute({ children, requiredRole = null, redirect
 
   // If not authenticated, redirect to login
   if (!user) {
+    console.log('ProtectedRoute: No user, redirecting to:', redirectTo)
     return <Navigate to={redirectTo} replace />
   }
 

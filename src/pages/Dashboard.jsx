@@ -155,13 +155,9 @@ export default function Dashboard() {
 
   const handleLogout = async () => {
     try {
-      const result = await signOut();
-      if (result.success) {
-        // Redirect to Auth page after successful logout
-        window.location.href = '/Auth';
-      } else {
-        console.error('Logout failed:', result.error);
-      }
+      console.log('Dashboard: Logout button clicked');
+      await signOut();
+      // AuthContext will handle the redirect
     } catch (error) {
       console.error('Error logging out:', error);
     }
