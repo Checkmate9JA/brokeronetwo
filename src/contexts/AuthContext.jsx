@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useNavigate } from 'react-router-dom'
 
 const AuthContext = createContext({})
 
@@ -167,15 +168,23 @@ export const AuthProvider = ({ children }) => {
   const signOut = async () => {
     try {
       console.log('Signing out...')
+      console.log('Current user state before logout:', { user, userProfile })
+      
       const { error } = await supabase.auth.signOut()
       if (error) throw error
       
       // Clear local state
       setUser(null)
       setUserProfile(null)
+      
+      console.log('Local state cleared, user:', user, 'userProfile:', userProfile)
       console.log('Sign out successful')
+      
+      // Return success status so component can handle redirect
+      return { success: true }
     } catch (error) {
       console.error('Error signing out:', error)
+      return { success: false, error }
     }
   }
 

@@ -155,8 +155,13 @@ export default function Dashboard() {
 
   const handleLogout = async () => {
     try {
-      await signOut();
-      // The AuthContext will handle the redirect automatically
+      const result = await signOut();
+      if (result.success) {
+        // Redirect to Auth page after successful logout
+        window.location.href = '/Auth';
+      } else {
+        console.error('Logout failed:', result.error);
+      }
     } catch (error) {
       console.error('Error logging out:', error);
     }
@@ -268,6 +273,7 @@ export default function Dashboard() {
 
   // Check if user is authenticated
   if (!authUser || !authUser.email) {
+    console.log('Dashboard: No authenticated user, showing auth required message');
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center">
         <div className="text-center">
@@ -424,16 +430,20 @@ export default function Dashboard() {
                         Logout
                       </Button>
                     </>
-                  ) : (
-                    <>
-                      <Button variant="ghost" className="justify-start text-gray-600" onClick={() => { User.login(); setIsMobileMenuOpen(false); }}>
-                          Login
-                      </Button>
-                      <Button variant="default" className="justify-start" onClick={() => { User.login(); setIsMobileMenuOpen(false); }}>
-                          Sign Up
-                      </Button>
-                    </>
-                  )}
+                                     ) : (
+                     <>
+                       <Link to="/Auth" onClick={() => setIsMobileMenuOpen(false)}>
+                         <Button variant="ghost" className="justify-start text-gray-600 w-full">
+                             Login
+                         </Button>
+                       </Link>
+                       <Link to="/Auth" onClick={() => setIsMobileMenuOpen(false)}>
+                         <Button variant="default" className="justify-start w-full">
+                             Sign Up
+                         </Button>
+                       </Link>
+                     </>
+                   )}
                 </div>
               </SheetContent>
             </Sheet>
