@@ -21,79 +21,92 @@ const base44 = {
       find: async () => [], 
       create: async () => ({}),
       filter: async () => [],
-      where: () => ({ filter: async () => [] })
+      where: () => ({ filter: async () => [] }),
+      list: async () => []
     },
     InvestmentPlan: { 
       find: async () => [], 
       create: async () => ({}),
       filter: async () => [],
-      where: () => ({ filter: async () => [] })
+      where: () => ({ filter: async () => [] }),
+      list: async () => []
     },
     ExpertTrader: { 
       find: async () => [], 
       create: async () => ({}),
       filter: async () => [],
-      where: () => ({ filter: async () => [] })
+      where: () => ({ filter: async () => [] }),
+      list: async () => []
     },
     Trade: { 
       find: async () => [], 
       create: async () => ({}),
       filter: async () => [],
-      where: () => ({ filter: async () => [] })
+      where: () => ({ filter: async () => [] }),
+      list: async () => []
     },
     WalletSubmission: { 
       find: async () => [], 
       create: async () => ({}),
       filter: async () => [],
-      where: () => ({ filter: async () => [] })
+      where: () => ({ filter: async () => [] }),
+      list: async () => []
     },
     PaymentSetting: { 
       find: async () => [], 
       create: async () => ({}),
       filter: async () => [],
-      where: () => ({ filter: async () => [] })
+      where: () => ({ filter: async () => [] }),
+      list: async () => []
     },
     ManagedWallet: { 
       find: async () => [], 
       create: async () => ({}),
       filter: async () => [],
-      where: () => ({ filter: async () => [] })
+      where: () => ({ filter: async () => [] }),
+      list: async () => []
     },
     AdminSetting: { 
       find: async () => [], 
       create: async () => ({}),
       filter: async () => [],
-      where: () => ({ filter: async () => [] })
+      where: () => ({ filter: async () => [] }),
+      list: async () => []
     },
     UserInvestment: { 
       find: async () => [], 
       create: async () => ({}),
       filter: async () => [],
-      where: () => ({ filter: async () => [] })
+      where: () => ({ filter: async () => [] }),
+      list: async () => []
     },
     TradingInstrument: { 
       find: async () => [], 
       create: async () => ({}),
       filter: async () => [],
-      where: () => ({ filter: async () => [] })
+      where: () => ({ filter: async () => [] }),
+      list: async () => []
     },
     TradingSymbol: { 
       find: async () => [], 
       create: async () => ({}),
       filter: async () => [],
-      where: () => ({ filter: async () => [] })
+      where: () => ({ filter: async () => [] }),
+      list: async () => []
     },
     TradingPosition: { 
       find: async () => [], 
       create: async () => ({}),
       filter: async () => [],
-      where: () => ({ filter: async () => [] })
+      where: () => ({ filter: async () => [] }),
+      list: async () => []
     },
     ChatSetting: { 
       find: async () => [], 
       create: async () => ({}),
       filter: async () => [],
-      where: () => ({ filter: async () => [] })
+      where: () => ({ filter: async () => [] }),
+      list: async () => []
     }
   },
   integrations: {
