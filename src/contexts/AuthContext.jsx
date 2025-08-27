@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 
 const AuthContext = createContext({})
@@ -15,16 +15,37 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [userProfile, setUserProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [supabaseError, setSupabaseError] = useState(false)
 
   useEffect(() => {
     // Get initial session
     const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        await fetchUserProfile(session.user.email)
+      console.log('Getting initial session...')
+      
+      // Add timeout to prevent infinite loading
+      const timeoutId = setTimeout(() => {
+        console.log('Session timeout - setting loading to false')
+        setLoading(false)
+      }, 5000) // 5 second timeout
+      
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        console.log('Session result:', session)
+        setUser(session?.user ?? null)
+        if (session?.user) {
+          await fetchUserProfile(session.user.email)
+        } else {
+          setUserProfile(null)
+        }
+        console.log('Setting loading to false')
+        setLoading(false)
+      } catch (error) {
+        console.error('Error getting session:', error)
+        setSupabaseError(true)
+        setLoading(false)
+      } finally {
+        clearTimeout(timeoutId)
       }
-      setLoading(false)
     }
 
     getSession()
@@ -32,6 +53,7 @@ export const AuthProvider = ({ children }) => {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state change:', event, session)
         setUser(session?.user ?? null)
         if (session?.user) {
           await fetchUserProfile(session.user.email)
@@ -43,9 +65,14 @@ export const AuthProvider = ({ children }) => {
     )
 
     return () => subscription.unsubscribe()
-  }, [])
+  }, [fetchUserProfile])
 
-  const fetchUserProfile = async (email) => {
+  const fetchUserProfile = useCallback(async (email) => {
+    if (!email) {
+      setUserProfile(null)
+      return
+    }
+    
     try {
       const { data, error } = await supabase
         .from('users')
@@ -55,14 +82,16 @@ export const AuthProvider = ({ children }) => {
 
       if (error) {
         console.error('Error fetching user profile:', error)
+        setUserProfile(null)
         return
       }
 
       setUserProfile(data)
     } catch (error) {
       console.error('Error fetching user profile:', error)
+      setUserProfile(null)
     }
-  }
+  }, [])
 
   const signIn = async (email, password) => {
     try {
@@ -111,6 +140,7 @@ export const AuthProvider = ({ children }) => {
     user,
     userProfile,
     loading,
+    supabaseError,
     signIn,
     signUp,
     signOut,
