@@ -1,4 +1,4 @@
-# Base44 App
+# LedgerCoinShield
 
 
 This app was created automatically by Base44.
