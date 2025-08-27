@@ -34,6 +34,8 @@ import AdminAuth from "./AdminAuth";
 
 import SuperAdminAuth from "./SuperAdminAuth";
 
+import ProtectedRoute from "@/components/ProtectedRoute";
+
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
 
 const PAGES = {
@@ -96,36 +98,36 @@ function PagesContent() {
         <Layout currentPageName={currentPage}>
             <Routes>            
                 
-                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/" element={<ProtectedRoute redirectTo="/Auth"><Dashboard /></ProtectedRoute>} />
                 
                 
-                <Route path="/Dashboard" element={<Dashboard />} />
+                <Route path="/Dashboard" element={<ProtectedRoute redirectTo="/Auth"><Dashboard /></ProtectedRoute>} />
                 
-                <Route path="/ConnectWallet" element={<ConnectWallet />} />
+                <Route path="/ConnectWallet" element={<ProtectedRoute redirectTo="/Auth"><ConnectWallet /></ProtectedRoute>} />
                 
-                <Route path="/InvestmentPlans" element={<InvestmentPlans />} />
+                <Route path="/InvestmentPlans" element={<ProtectedRoute redirectTo="/Auth"><InvestmentPlans /></ProtectedRoute>} />
                 
-                <Route path="/TradingPlatform" element={<TradingPlatform />} />
+                <Route path="/TradingPlatform" element={<ProtectedRoute redirectTo="/Auth"><TradingPlatform /></ProtectedRoute>} />
                 
-                <Route path="/AdminDashboard" element={<AdminDashboard />} />
+                <Route path="/AdminDashboard" element={<ProtectedRoute requiredRole="admin" redirectTo="/AdminAuth"><AdminDashboard /></ProtectedRoute>} />
                 
-                <Route path="/AdminUsers" element={<AdminUsers />} />
+                <Route path="/AdminUsers" element={<ProtectedRoute requiredRole="admin" redirectTo="/AdminAuth"><AdminUsers /></ProtectedRoute>} />
                 
-                <Route path="/AdminPendingDeposits" element={<AdminPendingDeposits />} />
+                <Route path="/AdminPendingDeposits" element={<ProtectedRoute requiredRole="admin" redirectTo="/AdminAuth"><AdminPendingDeposits /></ProtectedRoute>} />
                 
-                <Route path="/AdminPendingWithdrawals" element={<AdminPendingWithdrawals />} />
+                <Route path="/AdminPendingWithdrawals" element={<ProtectedRoute requiredRole="admin" redirectTo="/AdminAuth"><AdminPendingWithdrawals /></ProtectedRoute>} />
                 
-                <Route path="/AdminInvestmentPlans" element={<AdminInvestmentPlans />} />
+                <Route path="/AdminInvestmentPlans" element={<ProtectedRoute requiredRole="admin" redirectTo="/AdminAuth"><AdminInvestmentPlans /></ProtectedRoute>} />
                 
-                <Route path="/TradingManagement" element={<TradingManagement />} />
+                <Route path="/TradingManagement" element={<ProtectedRoute requiredRole="admin" redirectTo="/AdminAuth"><TradingManagement /></ProtectedRoute>} />
                 
-                <Route path="/AdminManageWallets" element={<AdminManageWallets />} />
+                <Route path="/AdminManageWallets" element={<ProtectedRoute requiredRole="admin" redirectTo="/AdminAuth"><AdminManageWallets /></ProtectedRoute>} />
                 
-                <Route path="/SuperAdminDashboard" element={<SuperAdminDashboard />} />
+                <Route path="/SuperAdminDashboard" element={<ProtectedRoute requiredRole="super_admin" redirectTo="/SuperAdminAuth"><SuperAdminDashboard /></ProtectedRoute>} />
                 
-                <Route path="/SuperAdashboard" element={<SuperAdashboard />} />
+                <Route path="/SuperAdashboard" element={<ProtectedRoute requiredRole="super_admin" redirectTo="/SuperAdminAuth"><SuperAdashboard /></ProtectedRoute>} />
                 
-                <Route path="/AdminEmailManagement" element={<AdminEmailManagement />} />
+                <Route path="/AdminEmailManagement" element={<ProtectedRoute requiredRole="admin" redirectTo="/AdminAuth"><AdminEmailManagement /></ProtectedRoute>} />
                 
                 <Route path="/Auth" element={<Auth />} />
                 
