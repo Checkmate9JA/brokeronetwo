@@ -47,16 +47,24 @@ export default function ProtectedRoute({ children, requiredRole = null, redirect
     return <Navigate to={redirectTo} replace />
   }
 
-  // If role is required, check user role
+  // If role is required, check user role (but allow access even if profile is still loading)
   if (requiredRole && userProfile) {
     if (requiredRole === 'admin' && userProfile.role !== 'admin' && userProfile.role !== 'super_admin') {
+      console.log('ProtectedRoute: User role insufficient for admin access')
       return <Navigate to="/Auth" replace />
     }
     if (requiredRole === 'super_admin' && userProfile.role !== 'super_admin') {
+      console.log('ProtectedRoute: User role insufficient for super admin access')
       return <Navigate to="/Auth" replace />
     }
   }
 
+  // If we have a user but no profile yet, still allow access (profile will load in background)
+  if (user && !userProfile) {
+    console.log('ProtectedRoute: User authenticated but profile not loaded yet, allowing access')
+  }
+
   // If all checks pass, render children
+  console.log('ProtectedRoute: All checks passed, rendering children')
   return children
 }

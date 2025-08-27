@@ -21,26 +21,39 @@ export const AuthProvider = ({ children }) => {
 
   const fetchUserProfile = useCallback(async (email) => {
     if (!email) {
+      console.log('fetchUserProfile: No email provided, setting profile to null')
       setUserProfile(null)
       return
     }
     
     try {
-      const { data, error } = await supabase
+      console.log('fetchUserProfile: Fetching profile for email:', email)
+      
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 10000) // 10 second timeout
+      })
+      
+      const profilePromise = supabase
         .from('users')
         .select('*')
         .eq('email', email)
         .single()
 
+      const { data, error } = await Promise.race([profilePromise, timeoutPromise])
+
       if (error) {
         console.error('Error fetching user profile:', error)
+        console.log('fetchUserProfile: Setting profile to null due to error')
         setUserProfile(null)
         return
       }
 
+      console.log('fetchUserProfile: Successfully fetched profile:', data)
       setUserProfile(data)
     } catch (error) {
       console.error('Error fetching user profile:', error)
+      console.log('fetchUserProfile: Setting profile to null due to exception')
       setUserProfile(null)
     }
   }, [])
@@ -93,13 +106,20 @@ export const AuthProvider = ({ children }) => {
         } else {
           setUser(session?.user ?? null)
           if (session?.user) {
-            await fetchUserProfile(session.user.email)
+            console.log('Initial session has user, fetching profile...')
+            try {
+              await fetchUserProfile(session.user.email)
+              console.log('Initial profile fetch completed')
+            } catch (error) {
+              console.error('Error in initial profile fetch:', error)
+            }
           } else {
+            console.log('No user in initial session')
             setUserProfile(null)
           }
         }
         
-        console.log('Final user state:', { user: session?.user, userProfile: null })
+        console.log('Final user state:', { user: session?.user, userProfile: userProfile })
         console.log('Setting loading to false')
         setLoading(false)
       } catch (error) {
@@ -140,13 +160,21 @@ export const AuthProvider = ({ children }) => {
         
         // Only proceed if we have a valid, non-mock user
         if (session?.user && !session.user.email.includes('@localhost')) {
+          console.log('Setting user and fetching profile...')
           setUser(session.user)
-          await fetchUserProfile(session.user.email)
+          try {
+            await fetchUserProfile(session.user.email)
+            console.log('Profile fetch completed, setting loading to false')
+          } catch (error) {
+            console.error('Error in profile fetch, but continuing:', error)
+          }
         } else {
+          console.log('No valid user, clearing state')
           setUser(null)
           setUserProfile(null)
         }
         
+        console.log('Auth state change completed, setting loading to false')
         setLoading(false)
       }
     )
@@ -182,6 +210,18 @@ export const AuthProvider = ({ children }) => {
       window.location.href = '/Auth'
     }
   }, [loading, user])
+
+  // Safety timeout: if loading takes too long, force resolve it
+  useEffect(() => {
+    if (loading) {
+      const safetyTimeout = setTimeout(() => {
+        console.log('Safety timeout: Loading taking too long, forcing loading to false')
+        setLoading(false)
+      }, 15000) // 15 second safety timeout
+
+      return () => clearTimeout(safetyTimeout)
+    }
+  }, [loading])
 
   const signIn = async (email, password) => {
     try {
