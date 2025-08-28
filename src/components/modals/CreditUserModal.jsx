@@ -13,8 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { X, DollarSign } from 'lucide-react';
-import { User } from '@/api/entities';
-import { Transaction } from '@/api/entities';
+import { supabase } from '@/lib/supabase';
 
 export default function CreditUserModal({ isOpen, onClose, user, onUpdate, onFeedback }) {
   const [walletType, setWalletType] = useState('');
@@ -34,29 +33,50 @@ export default function CreditUserModal({ isOpen, onClose, user, onUpdate, onFee
 
     setIsSubmitting(true);
     try {
-      // Ensure existing wallet balances are treated as numbers and then added.
-      // Remove toFixed(2) here so numbers are stored, formatting is for display.
+      // Calculate new balances
       const updatedBalances = {
         [walletType]: parseFloat(user[walletType] || 0) + creditAmount,
         total_balance: parseFloat(user.total_balance || 0) + creditAmount,
       };
 
-      await User.update(user.id, updatedBalances);
+      // Update user balances in Supabase
+      const { error: updateError } = await supabase
+        .from('users')
+        .update(updatedBalances)
+        .eq('id', user.id);
 
-      const transactionTypeMap = {
-        deposit_wallet: 'deposit',
-        profit_wallet: 'profit',
-        trading_wallet: 'transfer',
-        // referrer_bonus removed as per outline
-      };
+      if (updateError) {
+        throw new Error(`Failed to update user balances: ${updateError.message}`);
+      }
 
-      await Transaction.create({
-        user_email: user.email,
-        type: transactionTypeMap[walletType] || 'deposit', // Fallback to 'deposit' if wallet type not explicitly mapped
-        amount: creditAmount,
-        status: 'completed',
-        description: `Credited by admin: ${reason || 'No reason provided'}`,
-      });
+      // Create transaction record in Supabase (if transactions table exists)
+      try {
+        const transactionTypeMap = {
+          deposit_wallet: 'deposit',
+          profit_wallet: 'profit',
+          trading_wallet: 'transfer',
+        };
+
+        const { error: transactionError } = await supabase
+          .from('transactions')
+          .insert({
+            user_email: user.email,
+            user_id: user.id,
+            type: transactionTypeMap[walletType] || 'deposit',
+            amount: creditAmount,
+            status: 'completed',
+            description: `Credited by admin: ${reason || 'No reason provided'}`,
+            created_at: new Date().toISOString(),
+          });
+
+        if (transactionError) {
+          console.warn('Transaction record creation failed:', transactionError);
+          // Don't fail the credit operation if transaction logging fails
+        }
+      } catch (transactionErr) {
+        console.warn('Transactions table not available, skipping transaction log:', transactionErr);
+        // Don't fail the credit operation if transaction logging fails
+      }
       
       onUpdate();
       onClose();

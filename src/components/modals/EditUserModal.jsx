@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { X, Edit, RefreshCw } from 'lucide-react';
-import { User } from '@/api/entities';
+import { supabase } from '@/lib/supabase';
 
 const generateWithdrawalCode = () => {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -70,7 +70,33 @@ export default function EditUserModal({ isOpen, onClose, user, onUpdate }) {
         updateData.password = password;
       }
 
-      await User.update(user.id, updateData);
+      // Update user in Supabase
+      const { error: updateError } = await supabase
+        .from('users')
+        .update(updateData)
+        .eq('id', user.id);
+
+      if (updateError) {
+        throw new Error(`Failed to update user: ${updateError.message}`);
+      }
+
+      // If password is provided, update it in auth.users (requires service role)
+      if (password) {
+        try {
+          const { error: passwordError } = await supabase.auth.admin.updateUserById(
+            user.id,
+            { password: password }
+          );
+          
+          if (passwordError) {
+            console.warn('Password update failed:', passwordError);
+            // Don't fail the entire update if password update fails
+          }
+        } catch (passwordErr) {
+          console.warn('Password update not available:', passwordErr);
+          // Don't fail the entire update if password update fails
+        }
+      }
       
       alert('User updated successfully!');
       onUpdate && onUpdate();

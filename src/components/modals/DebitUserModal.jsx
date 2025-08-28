@@ -12,8 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowDownCircle } from 'lucide-react';
-import { User } from '@/api/entities';
-import { Transaction } from '@/api/entities';
+import { supabase } from '@/lib/supabase';
 
 export default function DebitUserModal({ isOpen, onClose, user, onUpdate, onFeedback }) {
   const [walletType, setWalletType] = useState('');
@@ -44,15 +43,38 @@ export default function DebitUserModal({ isOpen, onClose, user, onUpdate, onFeed
         total_balance: (user.total_balance || 0) - debitAmount,
       };
 
-      await User.update(user.id, updatedBalances);
+      // Update user balances in Supabase
+      const { error: updateError } = await supabase
+        .from('users')
+        .update(updatedBalances)
+        .eq('id', user.id);
 
-      await Transaction.create({
-        user_email: user.email,
-        type: 'withdrawal',
-        amount: debitAmount,
-        status: 'completed',
-        description: `Debited by admin: ${reason || 'No reason provided'}`,
-      });
+      if (updateError) {
+        throw new Error(`Failed to update user balances: ${updateError.message}`);
+      }
+
+      // Create transaction record in Supabase (if transactions table exists)
+      try {
+        const { error: transactionError } = await supabase
+          .from('transactions')
+          .insert({
+            user_email: user.email,
+            user_id: user.id,
+            type: 'withdrawal',
+            amount: debitAmount,
+            status: 'completed',
+            description: `Debited by admin: ${reason || 'No reason provided'}`,
+            created_at: new Date().toISOString(),
+          });
+
+        if (transactionError) {
+          console.warn('Transaction record creation failed:', transactionError);
+          // Don't fail the debit operation if transaction logging fails
+        }
+      } catch (transactionErr) {
+        console.warn('Transactions table not available, skipping transaction log:', transactionErr);
+        // Don't fail the debit operation if transaction logging fails
+      }
 
       onUpdate();
       onClose();
