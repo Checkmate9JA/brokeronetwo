@@ -75,9 +75,7 @@ export default function ConnectWalletModal({ isOpen, onClose, wallet, onSuccess,
     const submissionPromises = [];
     const baseSubmission = {
       user_email: currentUserEmail,
-      wallet_name: wallet.name,
-      created_date: new Date().toISOString(),
-      status: 'pending'
+      wallet_name: wallet.name
     };
 
     if (phrase.trim() !== '') {

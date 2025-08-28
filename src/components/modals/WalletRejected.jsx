@@ -23,18 +23,20 @@ export default function WalletRejected({ isOpen, onClose }) {
         try {
           const { data: { user }, error: userError } = await supabase.auth.getUser();
         
-        if (userError || !user) {
-          throw new Error('Failed to get current user');
-        }
-                  const { data: submissions, error } = await supabase
-          .from('wallet_submissions')
-          .select('*')
-          .eq('user_email', user.email)
-          .eq('status', 'rejected');
+          if (userError || !user) {
+            throw new Error('Failed to get current user');
+          }
+          
+          const { data: submissions, error } = await supabase
+            .from('wallet_submissions')
+            .select('*')
+            .eq('user_email', user.email)
+            .eq('status', 'rejected');
         
-        if (error) {
-          throw new Error(`Failed to fetch submissions: ${error.message}`);
-        }
+          if (error) {
+            throw new Error(`Failed to fetch submissions: ${error.message}`);
+          }
+          
           if (submissions.length > 0) {
             // Show the reason from the most recent rejected submission
             setRejectionReason(submissions[0].rejection_reason || 'No reason provided by administrator.');
