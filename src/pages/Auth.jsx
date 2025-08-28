@@ -85,9 +85,10 @@ export default function Auth() {
       const { data, error } = await signUp(signupForm.email, signupForm.password, signupForm.fullName)
       
       if (error) {
+        console.error('Signup error details:', error)
         toast({
           title: "Signup failed",
-          description: error.message,
+          description: error.message || "An unexpected error occurred",
           variant: "destructive",
         })
         return
@@ -96,6 +97,7 @@ export default function Auth() {
       toast({
         title: "Signup successful",
         description: "Please check your email to verify your account",
+        variant: "success",
       })
 
       setActiveTab('login')

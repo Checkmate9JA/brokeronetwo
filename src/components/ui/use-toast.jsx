@@ -2,7 +2,15 @@
 import { useState, useEffect, createContext, useContext } from "react";
 
 const TOAST_LIMIT = 20;
-const TOAST_REMOVE_DELAY = 1000000;
+const TOAST_REMOVE_DELAY = 5000; // 5 seconds
+
+// Toast duration based on type
+const TOAST_DURATIONS = {
+  success: 4000,    // 4 seconds for success messages
+  error: 6000,      // 6 seconds for error messages  
+  warning: 5000,    // 5 seconds for warnings
+  info: 4000        // 4 seconds for info messages
+};
 
 const actionTypes = {
   ADD_TOAST: "ADD_TOAST",
@@ -110,8 +118,25 @@ function dispatch(action) {
   });
 }
 
-function toast({ ...props }) {
+function toast({ variant = 'default', duration, ...props }) {
   const id = genId();
+
+  // Determine duration based on variant if not specified
+  if (!duration) {
+    switch (variant) {
+      case 'destructive':
+        duration = TOAST_DURATIONS.error;
+        break;
+      case 'success':
+        duration = TOAST_DURATIONS.success;
+        break;
+      case 'warning':
+        duration = TOAST_DURATIONS.warning;
+        break;
+      default:
+        duration = TOAST_DURATIONS.info;
+    }
+  }
 
   const update = (props) =>
     dispatch({
@@ -127,12 +152,20 @@ function toast({ ...props }) {
     toast: {
       ...props,
       id,
+      variant,
       open: true,
       onOpenChange: (open) => {
         if (!open) dismiss();
       },
     },
   });
+
+  // Auto-dismiss after specified duration
+  if (duration > 0) {
+    setTimeout(() => {
+      dismiss();
+    }, duration);
+  }
 
   return {
     id,

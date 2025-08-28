@@ -55,12 +55,20 @@ export default function AdminAuth() {
           return
         }
 
-        if (profile.role === 'admin' || profile.role === 'super_admin') {
+        if (profile.role === 'admin') {
           toast({
             title: "Login successful",
             description: "Welcome, Admin!",
+            variant: "success",
           })
           navigate('/AdminDashboard')
+        } else if (profile.role === 'super_admin') {
+          toast({
+            title: "Login successful",
+            description: "Welcome, Super Admin!",
+            variant: "success",
+          })
+          navigate('/SuperAdminDashboard')
         } else {
           toast({
             title: "Access denied",

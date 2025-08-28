@@ -59,6 +59,7 @@ export default function SuperAdminAuth() {
           toast({
             title: "Login successful",
             description: "Welcome, Super Admin!",
+            variant: "success",
           })
           navigate('/SuperAdminDashboard')
         } else {

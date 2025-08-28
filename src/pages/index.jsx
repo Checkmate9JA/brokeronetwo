@@ -34,6 +34,8 @@ import AdminAuth from "./AdminAuth";
 
 import SuperAdminAuth from "./SuperAdminAuth";
 
+import SupabaseConnectionTest from "@/components/SupabaseConnectionTest";
+
 import ProtectedRoute from "@/components/ProtectedRoute";
 
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
@@ -73,6 +75,8 @@ const PAGES = {
     AdminAuth: AdminAuth,
     
     SuperAdminAuth: SuperAdminAuth,
+    
+    SupabaseConnectionTest: SupabaseConnectionTest,
     
 }
 
@@ -134,6 +138,8 @@ function PagesContent() {
                 <Route path="/AdminAuth" element={<AdminAuth />} />
                 
                 <Route path="/SuperAdminAuth" element={<SuperAdminAuth />} />
+                
+                <Route path="/test-connection" element={<SupabaseConnectionTest />} />
                 
             </Routes>
         </Layout>

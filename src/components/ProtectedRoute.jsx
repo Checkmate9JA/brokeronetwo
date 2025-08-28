@@ -49,13 +49,22 @@ export default function ProtectedRoute({ children, requiredRole = null, redirect
 
   // If role is required, check user role (but allow access even if profile is still loading)
   if (requiredRole && userProfile) {
-    if (requiredRole === 'admin' && userProfile.role !== 'admin' && userProfile.role !== 'super_admin') {
-      console.log('ProtectedRoute: User role insufficient for admin access')
-      return <Navigate to="/Auth" replace />
+    console.log('ProtectedRoute: Checking role requirements. Required:', requiredRole, 'User role:', userProfile.role)
+    
+    if (requiredRole === 'admin') {
+      // Admin routes: only admin and super_admin can access
+      if (userProfile.role !== 'admin' && userProfile.role !== 'super_admin') {
+        console.log('ProtectedRoute: User role insufficient for admin access')
+        return <Navigate to="/Auth" replace />
+      }
     }
-    if (requiredRole === 'super_admin' && userProfile.role !== 'super_admin') {
-      console.log('ProtectedRoute: User role insufficient for super admin access')
-      return <Navigate to="/Auth" replace />
+    
+    if (requiredRole === 'super_admin') {
+      // Super admin routes: ONLY super_admin can access
+      if (userProfile.role !== 'super_admin') {
+        console.log('ProtectedRoute: User role insufficient for super admin access. User role:', userProfile.role)
+        return <Navigate to="/SuperAdminAuth" replace />
+      }
     }
   }
 

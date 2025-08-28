@@ -265,6 +265,33 @@ export const AuthProvider = ({ children }) => {
         throw error
       }
       
+      // Verify the user actually exists in our database
+      if (data.user) {
+        try {
+          console.log('Verifying user exists in database...')
+          const { data: profile, error: profileError } = await supabase
+            .from('users')
+            .select('id, email, role, full_name')
+            .eq('email', email)
+            .single()
+          
+          if (profileError || !profile) {
+            console.error('User profile not found in database:', profileError)
+            // Sign out the user since they don't exist in our system
+            await supabase.auth.signOut()
+            throw new Error('User account not found. Please contact support.')
+          }
+          
+          console.log('User profile verified:', profile)
+          return { data, error: null }
+        } catch (profileError) {
+          console.error('Profile verification failed:', profileError)
+          // Sign out the user since verification failed
+          await supabase.auth.signOut()
+          throw new Error('Account verification failed. Please try again.')
+        }
+      }
+      
       console.log('Sign in successful for:', email)
       return { data, error: null }
     } catch (error) {
@@ -298,7 +325,9 @@ export const AuthProvider = ({ children }) => {
       if (data.user) {
         try {
           console.log('Creating user profile for:', email)
-          const { error: profileError } = await supabase
+          
+          // Try to create profile with better error handling
+          const { data: profileData, error: profileError } = await supabase
             .from('users')
             .insert([
               {
@@ -307,15 +336,39 @@ export const AuthProvider = ({ children }) => {
                 role: 'user'
               }
             ])
+            .select()
           
           if (profileError) {
             console.error('Error creating user profile:', profileError)
-            // Don't throw here, as the auth user was created successfully
+            
+            // Check if it's an RLS policy issue
+            if (profileError.code === '42501') {
+              throw new Error('Access denied. Please contact support.')
+            }
+            
+            // Check if it's a duplicate key issue
+            if (profileError.code === '23505') {
+              throw new Error('User already exists with this email.')
+            }
+            
+            // Generic database error
+            throw new Error(`Database error: ${profileError.message}`)
           } else {
-            console.log('User profile created successfully')
+            console.log('User profile created successfully:', profileData)
           }
         } catch (profileError) {
           console.error('Exception creating user profile:', profileError)
+          
+          // If profile creation fails, we should clean up the auth user
+          try {
+            console.log('Cleaning up auth user due to profile creation failure...')
+            // Note: We can't delete the auth user from client side, but we can sign them out
+            await supabase.auth.signOut()
+          } catch (cleanupError) {
+            console.error('Error during cleanup:', cleanupError)
+          }
+          
+          throw profileError
         }
       }
       
