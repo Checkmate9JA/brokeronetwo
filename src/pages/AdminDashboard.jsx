@@ -158,7 +158,8 @@ export default function AdminDashboard() {
       const pendingDepositsAmount = deposits.reduce((sum, transaction) => sum + (transaction.amount || 0), 0);
       const pendingWithdrawalsAmount = withdrawals.reduce((sum, transaction) => sum + (transaction.amount || 0), 0);
 
-      const newStats = {
+      // Use real data from Supabase
+      const finalStats = {
         totalUsers: users.length,
         pendingDeposits: deposits.length,
         pendingDepositsAmount: pendingDepositsAmount,
@@ -166,30 +167,6 @@ export default function AdminDashboard() {
         pendingWithdrawalsAmount: pendingWithdrawalsAmount,
         investmentPlans: plans.length
       };
-
-      // If no data exists, create some sample data for demonstration
-      let finalStats = newStats;
-      if (users.length === 0 && allTransactions.length === 0 && plans.length === 0) {
-        console.log('📝 No data found, creating sample admin stats...');
-        finalStats = {
-          totalUsers: 5,
-          pendingDeposits: 3,
-          pendingDepositsAmount: 2500,
-          pendingWithdrawals: 2,
-          pendingWithdrawalsAmount: 800,
-          investmentPlans: 4
-        };
-      } else {
-        // Use real data but ensure we have at least some values
-        finalStats = {
-          totalUsers: Math.max(users.length, 1),
-          pendingDeposits: Math.max(deposits.length, 0),
-          pendingDepositsAmount: Math.max(pendingDepositsAmount, 0),
-          pendingWithdrawals: Math.max(withdrawals.length, 0),
-          pendingWithdrawalsAmount: Math.max(pendingWithdrawalsAmount, 0),
-          investmentPlans: Math.max(plans.length, 1)
-        };
-      }
 
       console.log('✅ Admin stats loaded successfully:', finalStats);
       setStats(finalStats);

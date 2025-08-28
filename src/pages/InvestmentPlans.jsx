@@ -6,10 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Calendar, TrendingUp, DollarSign } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { InvestmentPlan } from '@/api/entities';
-import { UserInvestment } from '@/api/entities';
-import { User } from '@/api/entities';
-import { Transaction } from '@/api/entities';
+import { supabase } from '@/lib/supabase';
 import InvestNowModal from '../components/modals/InvestNowModal';
 import { Badge } from "@/components/ui/badge";
 import FeedbackModal from '../components/modals/FeedbackModal';
@@ -61,22 +58,69 @@ export default function InvestmentPlans() {
   const loadData = async () => {
     setIsLoading(true); // Set loading true before starting data fetch
     try {
-      const [fetchedPlans, currentUser] = await Promise.all([
-        InvestmentPlan.filter({ is_active: true }), // Fetch only active plans
-        User.me()
-      ]);
+      console.log('🔍 Loading investment data from Supabase...');
       
-      setPlans(fetchedPlans);
-      setUser(currentUser);
+      // Fetch active investment plans from Supabase
+      const { data: fetchedPlans, error: plansError } = await supabase
+        .from('investment_plans')
+        .select('*')
+        .eq('is_active', true)
+        .order('min_deposit', { ascending: true }); // Order by lowest minimum amount first
       
-      // Load user's investments only if currentUser is available
-      if (currentUser) {
-        const investments = await UserInvestment.filter({ user_email: currentUser.email });
-        setMyInvestments(investments);
+      if (plansError) {
+        throw new Error(`Failed to fetch plans: ${plansError.message}`);
       }
+      
+      console.log('✅ Investment plans loaded:', fetchedPlans?.length || 0);
+      setPlans(fetchedPlans || []);
+      
+      // Get current user from Supabase auth
+      const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) {
+        throw new Error(`Failed to get current user: ${userError.message}`);
+      }
+      
+      if (currentUser) {
+        // Fetch user profile from public.users table
+        const { data: userProfile, error: profileError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('email', currentUser.email)
+          .single();
+        
+        if (profileError) {
+          console.warn('Could not fetch user profile:', profileError);
+          // Use basic user info from auth
+          setUser({
+            id: currentUser.id,
+            email: currentUser.email,
+            full_name: currentUser.user_metadata?.full_name || 'User'
+          });
+        } else {
+          setUser(userProfile);
+        }
+        
+        // Load user's investments from user_investments table
+        const { data: investments, error: investmentsError } = await supabase
+          .from('user_investments')
+          .select('*')
+          .eq('user_email', currentUser.email);
+        
+        if (investmentsError) {
+          console.warn('Could not fetch user investments:', investmentsError);
+          setMyInvestments([]);
+        } else {
+          setMyInvestments(investments || []);
+        }
+      } else {
+        setUser(null);
+        setMyInvestments([]);
+      }
+      
     } catch (error) {
-      console.error('Error loading data:', error);
-      showFeedback('error', 'Data Load Error', 'Failed to load investment data. Please try again later.'); // Use feedback modal
+      console.error('❌ Error loading data:', error);
+      showFeedback('error', 'Data Load Error', 'Failed to load investment data. Please try again later.');
     } finally {
       setIsLoading(false);
     }
@@ -98,27 +142,35 @@ export default function InvestmentPlans() {
     
     try {
       // Update investment status
-      await UserInvestment.update(investment.id, {
-        status: 'cancelled',
-        profit_earned: 0, // Mark profit as 0 since it's cancelled early
-        // Removed actual_maturity_date as per outline
-      });
+      await supabase
+        .from('user_investments')
+        .update({
+          status: 'cancelled',
+          profit_earned: 0, // Mark profit as 0 since it's cancelled early
+          // Removed actual_maturity_date as per outline
+        })
+        .eq('id', investment.id);
       
       // Return capital to trading wallet
       const newTradingBalance = (user.trading_wallet || 0) + investment.amount_invested;
-      await User.update(user.id, {
-        trading_wallet: newTradingBalance
-      });
+      await supabase
+        .from('users')
+        .update({
+          trading_wallet: newTradingBalance
+        })
+        .eq('id', user.id);
       
       // Create transaction record
-      await Transaction.create({
-        type: 'transfer', // Changed type to 'transfer' as per outline
-        amount: investment.amount_invested,
-        status: 'completed',
-        description: `Investment cancelled: ${investment.plan_name} - Capital returned`, // Changed description as per outline
-        user_email: user.email, // Ensure transaction is linked to user
-        created_by: user.email, // Added created_by field
-      });
+      await supabase
+        .from('transactions')
+        .insert({
+          type: 'transfer', // Changed type to 'transfer' as per outline
+          amount: investment.amount_invested,
+          status: 'completed',
+          description: `Investment cancelled: ${investment.plan_name} - Capital returned`, // Changed description as per outline
+          user_email: user.email, // Ensure transaction is linked to user
+          created_by: user.email, // Added created_by field
+        });
       
       showFeedback('success', 'Investment Cancelled', 'Capital has been returned to your trading wallet.'); // Use feedback modal
       loadData(); // Reload data to reflect changes

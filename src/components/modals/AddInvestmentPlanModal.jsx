@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { InvestmentPlan } from '@/api/entities';
+import { supabase } from '@/lib/supabase';
 import { PlusCircle } from 'lucide-react';
 import FeedbackModal from './FeedbackModal';
 
@@ -54,7 +54,15 @@ export default function AddInvestmentPlanModal({ isOpen, onClose, onSuccess }) {
         max_deposit: parseFloat(formData.max_deposit)
       };
 
-      await InvestmentPlan.create(payload);
+      const { data, error } = await supabase
+        .from('investment_plans')
+        .insert(payload)
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(`Failed to create investment plan: ${error.message}`);
+      }
       showFeedback('success', 'Success!', 'Investment plan created successfully!');
       
       setTimeout(() => {

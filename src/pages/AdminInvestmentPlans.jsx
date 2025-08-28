@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { ArrowLeft, Search, Plus, Edit, Trash2, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { InvestmentPlan } from '@/api/entities';
+import { supabase } from '@/lib/supabase';
 import AddInvestmentPlanModal from '../components/modals/AddInvestmentPlanModal';
 import EditInvestmentPlanModal from '../components/modals/EditInvestmentPlanModal';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -29,10 +29,20 @@ export default function AdminInvestmentPlans() {
 
   const loadPlans = async () => {
     try {
-      const fetchedPlans = await InvestmentPlan.list();
-      setPlans(fetchedPlans);
+      console.log('🔍 Loading investment plans from Supabase...');
+      const { data, error } = await supabase
+        .from('investment_plans')
+        .select('*')
+        .order('min_deposit', { ascending: true }); // Order by lowest minimum amount first
+
+      if (error) {
+        throw new Error(`Failed to fetch plans: ${error.message}`);
+      }
+
+      console.log('✅ Investment plans loaded:', data?.length || 0);
+      setPlans(data || []);
     } catch (error) {
-      console.error('Error loading plans:', error);
+      console.error('❌ Error loading plans:', error);
       showFeedback('error', 'Error', 'Failed to load investment plans.');
     } finally {
       setIsLoading(false);
@@ -50,7 +60,14 @@ export default function AdminInvestmentPlans() {
 
   const handleDelete = async (planId) => {
     try {
-      await InvestmentPlan.delete(planId);
+      const { error } = await supabase
+        .from('investment_plans')
+        .delete()
+        .eq('id', planId);
+
+      if (error) {
+        throw new Error(`Failed to delete plan: ${error.message}`);
+      }
       showFeedback('success', 'Success!', 'Investment plan deleted successfully!');
       setDeleteConfirmation({ isOpen: false, planId: null, planName: '' });
       loadPlans();

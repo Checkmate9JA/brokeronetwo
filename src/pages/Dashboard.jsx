@@ -315,7 +315,8 @@ export default function Dashboard() {
           if (submissionsError) {
             console.error('Error fetching wallet submissions:', submissionsError);
             // Default to no submissions found
-            const userSubmissions = [];
+            setIsWalletNotConnectedModalOpen(true);
+            return; // Exit early on error
           }
           
           console.log('User wallet submissions:', userSubmissions);
@@ -326,21 +327,31 @@ export default function Dashboard() {
           } else {
             // Get the most recent submission
             const latestSubmission = userSubmissions.sort((a, b) => 
-              new Date(b.created_date) - new Date(a.created_date)
+              new Date(b.created_at || b.created_date) - new Date(a.created_at || a.created_date)
             )[0];
             
             console.log('Latest submission status:', latestSubmission.status);
+            console.log('Latest submission details:', latestSubmission);
             
-            if (latestSubmission.status === 'rejected') {
+            // Check if there are any rejected submissions
+            const hasRejectedSubmissions = userSubmissions.some(sub => sub.status === 'rejected');
+            const hasValidatedSubmissions = userSubmissions.some(sub => sub.status === 'validated');
+            
+            if (hasRejectedSubmissions && !hasValidatedSubmissions) {
+              // If there are rejected submissions and no validated ones, show rejected modal
+              console.log('❌ User has rejected wallet submissions, showing rejected modal');
               setIsWalletRejectedModalOpen(true);
-            } else if (latestSubmission.status === 'pending') {
-              setIsWalletPendingModalOpen(true);
             } else if (latestSubmission.status === 'validated') {
               // For validated wallets, go DIRECTLY to withdrawal form, pre-validated
+              console.log('✅ User has validated wallet, proceeding to withdrawal');
               setIsWithdrawalPreValidated(true);
               setIsWithdrawalModalOpen(true);
+            } else if (latestSubmission.status === 'pending') {
+              console.log('⏳ User has pending wallet submissions');
+              setIsWalletPendingModalOpen(true);
             } else {
               // Fallback to pending if status is unclear
+              console.log('⚠️ Status unclear, defaulting to pending');
               setIsWalletPendingModalOpen(true);
             }
           }

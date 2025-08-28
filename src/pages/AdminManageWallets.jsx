@@ -8,6 +8,7 @@ import { Plus, Search, Edit, Trash, ArrowLeft, RefreshCw, CheckCircle, XCircle }
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { supabase } from '@/lib/supabase';
+import { getWalletIconDisplayUrl, getWalletIconUrlSync } from '@/utils/walletIconDisplay';
 import AddWalletModal from '../components/modals/AddWalletModal';
 import EditWalletModal from '../components/modals/EditWalletModal';
 import FeedbackModal from '../components/modals/FeedbackModal';
@@ -27,6 +28,38 @@ export default function AdminManageWallets() {
   useEffect(() => {
     loadWallets();
   }, []);
+
+  // Load wallet icon URLs from storage
+  useEffect(() => {
+    const loadWalletIcons = async () => {
+      if (wallets.length > 0) {
+        const updatedWallets = await Promise.all(
+          wallets.map(async (wallet) => {
+            try {
+              const iconUrl = await getWalletIconDisplayUrl(wallet);
+              if (iconUrl && iconUrl !== wallet.icon_url) {
+                return { ...wallet, icon_url: iconUrl };
+              }
+            } catch (error) {
+              console.warn('Failed to load icon for wallet:', wallet.name, error);
+            }
+            return wallet;
+          })
+        );
+        
+        // Only update if we have new icon URLs
+        const hasNewIcons = updatedWallets.some((wallet, index) => 
+          wallet.icon_url !== wallets[index]?.icon_url
+        );
+        
+        if (hasNewIcons) {
+          setWallets(updatedWallets);
+        }
+      }
+    };
+
+    loadWalletIcons();
+  }, [wallets]);
 
   const showFeedback = (type, title, message) => {
     setFeedback({ isOpen: true, type, title, message });
@@ -287,9 +320,9 @@ export default function AdminManageWallets() {
               <Card key={wallet.id} className="p-6">
                 <div className="text-center mb-4">
                   <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center overflow-hidden">
-                    {wallet.icon_url ? (
+                    {getWalletIconUrlSync(wallet) ? (
                       <img 
-                        src={wallet.icon_url} 
+                        src={getWalletIconUrlSync(wallet)} 
                         alt={wallet.name}
                         className="w-12 h-12 object-contain"
                         onError={(e) => {
@@ -299,7 +332,7 @@ export default function AdminManageWallets() {
                       />
                     ) : null}
                     <div 
-                      className={`w-12 h-12 bg-gray-200 rounded-full items-center justify-center text-gray-500 text-lg font-semibold ${wallet.icon_url ? 'hidden' : 'flex'}`}
+                      className={`w-12 h-12 bg-gray-200 rounded-full items-center justify-center text-gray-500 text-lg font-semibold ${getWalletIconUrlSync(wallet) ? 'hidden' : 'flex'}`}
                     >
                       {wallet.name.charAt(0)}
                     </div>

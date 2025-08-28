@@ -54,23 +54,75 @@ export default function ViewUserWalletsModal({ isOpen, onClose, user }) {
   const loadSubmissions = async () => {
     setIsLoading(true);
     try {
-      // Keeping existing load logic which filters client-side after fetching all.
-              // Fetch all wallet submissions from Supabase
-        const { data: allSubmissions, error: submissionsError } = await supabase
+      console.log('🔍 Loading wallet submissions for user:', user?.email);
+      
+      // Try to fetch submissions directly first
+      let allSubmissions = [];
+      let submissionsError = null;
+      
+      try {
+        // Try with created_at first (modern Supabase standard)
+        const { data, error } = await supabase
+          .from('wallet_submissions')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        allSubmissions = data || [];
+        submissionsError = error;
+        
+        if (!error) {
+          console.log('✅ Successfully ordered by created_at');
+        }
+      } catch (err) {
+        console.log('⚠️ created_at ordering failed, trying created_date...');
+        
+        // Fallback to created_date if created_at fails
+        const { data, error } = await supabase
           .from('wallet_submissions')
           .select('*')
           .order('created_date', { ascending: false });
         
-        if (submissionsError) {
-          throw new Error(`Failed to fetch submissions: ${submissionsError.message}`);
+        allSubmissions = data || [];
+        submissionsError = error;
+        
+        if (!error) {
+          console.log('✅ Successfully ordered by created_date');
         }
-      const userSubmissions = allSubmissions.filter(s =>
-        s.user_email?.toLowerCase() === user.email?.toLowerCase()
-      );
+      }
+      
+      if (submissionsError) {
+        console.error('❌ Submissions fetch error:', submissionsError);
+        throw new Error(`Failed to fetch submissions: ${submissionsError.message}`);
+      }
+      
+      console.log('✅ Raw submissions fetched:', allSubmissions?.length || 0);
+      
+      // Filter submissions for the current user
+      const userSubmissions = allSubmissions?.filter(s => {
+        const matches = s.user_email?.toLowerCase() === user.email?.toLowerCase();
+        if (matches) {
+          console.log('✅ Found submission:', s.id, s.wallet_name, s.status);
+        }
+        return matches;
+      }) || [];
+      
+      console.log('✅ User submissions filtered:', userSubmissions.length);
       setSubmissions(userSubmissions);
+      
     } catch (error) {
-      console.error('Error loading wallet submissions:', error);
-      showFeedback('error', 'Load Error', 'Failed to load wallet submissions.');
+      console.error('❌ Error loading wallet submissions:', error);
+      
+      // More specific error messages
+      let errorMessage = 'Failed to load wallet submissions.';
+      if (error.message.includes('Table access error')) {
+        errorMessage = 'Database table not accessible. Please check permissions.';
+      } else if (error.message.includes('Failed to fetch')) {
+        errorMessage = 'Network error while loading data. Please try again.';
+      } else if (error.message.includes('relation "wallet_submissions" does not exist')) {
+        errorMessage = 'Wallet submissions table does not exist. Please contact support.';
+      }
+      
+      showFeedback('error', 'Load Error', errorMessage);
       setSubmissions([]);
     } finally {
       setIsLoading(false);
@@ -198,9 +250,14 @@ export default function ViewUserWalletsModal({ isOpen, onClose, user }) {
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-    });
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+      });
+    } catch (error) {
+      console.error('Error formatting date:', dateString, error);
+      return 'Invalid Date';
+    }
   };
 
   const StatusBadge = ({ status }) => {
@@ -227,6 +284,23 @@ export default function ViewUserWalletsModal({ isOpen, onClose, user }) {
     </Button>
   );
 
+  const testSupabaseConnection = async () => {
+    try {
+      console.log('🧪 Testing Supabase connection...');
+      const { data, error } = await supabase.from('wallet_submissions').select('*').limit(1);
+      if (error) {
+        console.error('❌ Database test failed:', error);
+        showFeedback('error', 'Database Error', `Failed to fetch data: ${error.message}`);
+      } else {
+        console.log('✅ Database test successful:', data);
+        showFeedback('success', 'Database OK', `Successfully fetched ${data.length} wallet submissions.`);
+      }
+    } catch (error) {
+      console.error('❌ Unexpected error during test:', error);
+      showFeedback('error', 'Database Error', `An unexpected error occurred: ${error.message}`);
+    }
+  };
+
   return (
     <>
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -238,11 +312,21 @@ export default function ViewUserWalletsModal({ isOpen, onClose, user }) {
             </DialogTitle>
             <p className="text-sm text-gray-500 mt-1">{user?.email}</p>
           </div>
-          {submissions.length > 0 && (
-            <Button variant="destructive" size="sm" onClick={handleClearAll}>
-              Clear All
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => testSupabaseConnection()}
+              title="Test database connection"
+            >
+              Test DB
             </Button>
-          )}
+            {submissions.length > 0 && (
+              <Button variant="destructive" size="sm" onClick={handleClearAll}>
+                Clear All
+              </Button>
+            )}
+          </div>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto p-1">
@@ -271,7 +355,7 @@ export default function ViewUserWalletsModal({ isOpen, onClose, user }) {
                       </h3>
                     </div>
                     <p className="text-xs text-gray-500 mb-3">
-                      Submitted {formatDate(submission.created_date)}
+                      Submitted {formatDate(submission.created_at || submission.created_date)}
                     </p>
 
                     {submission.phrase && (

@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { InvestmentPlan } from '@/api/entities';
+import { supabase } from '@/lib/supabase';
 import { Edit } from 'lucide-react';
 import FeedbackModal from './FeedbackModal';
 
@@ -71,7 +71,16 @@ export default function EditInvestmentPlanModal({ isOpen, onClose, plan, onSucce
         max_deposit: parseFloat(formData.max_deposit)
       };
 
-      await InvestmentPlan.update(plan.id, payload);
+      const { data, error } = await supabase
+        .from('investment_plans')
+        .update(payload)
+        .eq('id', plan.id)
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(`Failed to update investment plan: ${error.message}`);
+      }
       showFeedback('success', 'Success!', 'Investment plan updated successfully!');
       setTimeout(() => {
         onSuccess();

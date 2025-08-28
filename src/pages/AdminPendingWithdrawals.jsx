@@ -7,8 +7,7 @@ import { Input } from "@/components/ui/input";
 import { ArrowLeft, Search, MoreHorizontal, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { Transaction } from '@/api/entities';
-import { User } from '@/api/entities';
+import { supabase } from '@/lib/supabase';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -74,12 +73,35 @@ export default function AdminPendingWithdrawals() {
   const loadWithdrawals = async () => {
     setIsLoading(true);
     try {
-      const [allTransactions, allUsers] = await Promise.all([
-        Transaction.list(),
-        User.list(),
+      console.log('🔍 Loading pending withdrawals from Supabase...');
+      
+      // Fetch transactions and users from Supabase
+      const [transactionsResult, usersResult] = await Promise.all([
+        supabase.from('transactions').select('*'),
+        supabase.from('users').select('*')
       ]);
-      const fetchedWithdrawals = allTransactions.filter(t => t.type === 'withdrawal' && t.status === 'pending')
-                                                .sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
+
+      if (transactionsResult.error) {
+        console.error('❌ Error fetching transactions:', transactionsResult.error);
+        showFeedback('error', 'Error', 'Failed to load transactions. Please refresh the page.');
+        return;
+      }
+
+      if (usersResult.error) {
+        console.error('❌ Error fetching users:', usersResult.error);
+        showFeedback('error', 'Error', 'Failed to load users. Please refresh the page.');
+        return;
+      }
+
+      const allTransactions = transactionsResult.data || [];
+      const allUsers = usersResult.data || [];
+
+      // Filter pending withdrawals and sort by creation date
+      const fetchedWithdrawals = allTransactions
+        .filter(t => t.type === 'withdrawal' && t.status === 'pending')
+        .sort((a, b) => new Date(b.created_at || b.created_date) - new Date(a.created_at || a.created_date));
+      
+      console.log('✅ Found pending withdrawals:', fetchedWithdrawals.length);
       
       // Create user lookup map using email as key
       const usersMap = {};
@@ -92,7 +114,8 @@ export default function AdminPendingWithdrawals() {
       setUsers(usersMap);
       setWithdrawals(fetchedWithdrawals);
     } catch (error) {
-      console.error('Error loading withdrawals:', error);
+      console.error('❌ Error loading withdrawals:', error);
+      showFeedback('error', 'Error', 'Failed to load withdrawals. Please refresh the page.');
     } finally {
       setIsLoading(false);
     }
@@ -132,7 +155,14 @@ export default function AdminPendingWithdrawals() {
     if (!withdrawalToProcess) return;
 
     try {
-      await Transaction.update(withdrawalToProcess.id, { status: 'completed' });
+              const { error: updateError } = await supabase
+          .from('transactions')
+          .update({ status: 'completed' })
+          .eq('id', withdrawalToProcess.id);
+
+        if (updateError) {
+          throw new Error(`Failed to update transaction: ${updateError.message}`);
+        }
       showFeedback('success', 'Success!', 'Withdrawal approved successfully!');
       loadWithdrawals();
     } catch (error) {
@@ -148,7 +178,14 @@ export default function AdminPendingWithdrawals() {
     if (!selectedWithdrawal) return;
     try {
       // 1. Update transaction status
-      await Transaction.update(selectedWithdrawal.id, { status: 'rejected', rejection_reason: reason });
+              const { error: updateError } = await supabase
+          .from('transactions')
+          .update({ status: 'rejected', rejection_reason: reason })
+          .eq('id', selectedWithdrawal.id);
+
+        if (updateError) {
+          throw new Error(`Failed to update transaction: ${updateError.message}`);
+        }
       
       // 2. Refund the user
       const user = getUserInfo(selectedWithdrawal);
