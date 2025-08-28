@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { ArrowLeft, Search, Wallet } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { ManagedWallet } from '@/api/entities';
+import { supabase } from '@/lib/supabase';
 import ConnectWalletModal from '../components/modals/ConnectWalletModal';
 import FeedbackModal from '../components/modals/FeedbackModal';
 
@@ -32,10 +32,19 @@ export default function ConnectWallet() {
     try {
       console.log('ConnectWallet: Starting to load data...');
       
-      const allWallets = await ManagedWallet.list();
+      const { data: allWallets, error } = await supabase
+        .from('managed_wallets')
+        .select('*');
+      
+      if (error) {
+        console.error('ConnectWallet: Error loading wallets:', error);
+        setError(`Failed to load wallets: ${error.message}`);
+        return;
+      }
+      
       console.log('ConnectWallet: All wallets from database:', allWallets);
       
-      if (allWallets.length === 0) {
+      if (!allWallets || allWallets.length === 0) {
         console.log('ConnectWallet: No wallets found in the database.');
         setWallets([]);
       } else {

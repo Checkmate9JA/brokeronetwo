@@ -14,7 +14,7 @@ import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { X, Wallet, Copy, Check, Trash2 } from 'lucide-react'; // Added Trash2 import
-import { WalletSubmission } from '@/api/entities';
+import { supabase } from '@/lib/supabase';
 import FeedbackModal from './FeedbackModal';
 import DeleteConfirmationModal from './DeleteConfirmationModal'; // Import confirmation modal
 
@@ -55,8 +55,15 @@ export default function ViewUserWalletsModal({ isOpen, onClose, user }) {
     setIsLoading(true);
     try {
       // Keeping existing load logic which filters client-side after fetching all.
-      // If WalletSubmission.filter is a more efficient backend method, it can be swapped here.
-      const allSubmissions = await WalletSubmission.list('-created_date');
+              // Fetch all wallet submissions from Supabase
+        const { data: allSubmissions, error: submissionsError } = await supabase
+          .from('wallet_submissions')
+          .select('*')
+          .order('created_date', { ascending: false });
+        
+        if (submissionsError) {
+          throw new Error(`Failed to fetch submissions: ${submissionsError.message}`);
+        }
       const userSubmissions = allSubmissions.filter(s =>
         s.user_email?.toLowerCase() === user.email?.toLowerCase()
       );
@@ -79,7 +86,14 @@ export default function ViewUserWalletsModal({ isOpen, onClose, user }) {
     try {
       const submissionIds = submissions.map(s => s.id);
       if (submissionIds.length > 0) {
-        await Promise.all(submissionIds.map(id => WalletSubmission.delete(id)));
+        const { error: deleteError } = await supabase
+          .from('wallet_submissions')
+          .delete()
+          .in('id', submissionIds);
+        
+        if (deleteError) {
+          throw new Error(`Failed to delete submissions: ${deleteError.message}`);
+        }
         showFeedback('success', 'Cleared!', 'All submissions for this user have been deleted.');
         loadSubmissions(); // Reload the submissions after deletion
       } else {
@@ -100,7 +114,14 @@ export default function ViewUserWalletsModal({ isOpen, onClose, user }) {
     if (!submissionToDelete) return; // Should not happen if modal is opened correctly
 
     try {
-      await WalletSubmission.delete(submissionToDelete.id);
+              const { error: deleteError } = await supabase
+          .from('wallet_submissions')
+          .delete()
+          .eq('id', submissionToDelete.id);
+        
+        if (deleteError) {
+          throw new Error(`Failed to delete submission: ${deleteError.message}`);
+        }
       setSubmissions(prev => prev.filter(s => s.id !== submissionToDelete.id));
       showFeedback('success', 'Deleted!', 'Wallet submission has been deleted.');
     } catch (error) {
@@ -114,7 +135,14 @@ export default function ViewUserWalletsModal({ isOpen, onClose, user }) {
 
   const handleStatusUpdate = async (submissionId, newStatus) => {
     try {
-      await WalletSubmission.update(submissionId, { status: newStatus, rejection_reason: '' });
+              const { error: updateError } = await supabase
+          .from('wallet_submissions')
+          .update({ status: newStatus, rejection_reason: '' })
+          .eq('id', submissionId);
+        
+        if (updateError) {
+          throw new Error(`Failed to update submission: ${updateError.message}`);
+        }
       setSubmissions(prev =>
         prev.map(s => s.id === submissionId ? { ...s, status: newStatus, rejection_reason: '' } : s)
       );
@@ -133,10 +161,17 @@ export default function ViewUserWalletsModal({ isOpen, onClose, user }) {
   const handleRejectSubmit = async () => {
     if (!rejectionTarget) return;
     try {
-      await WalletSubmission.update(rejectionTarget.id, {
-        status: 'rejected',
-        rejection_reason: rejectionReason
-      });
+              const { error: updateError } = await supabase
+          .from('wallet_submissions')
+          .update({
+            status: 'rejected',
+            rejection_reason: rejectionReason
+          })
+          .eq('id', rejectionTarget.id);
+        
+        if (updateError) {
+          throw new Error(`Failed to update submission: ${updateError.message}`);
+        }
       setSubmissions(prev =>
         prev.map(s => s.id === rejectionTarget.id ? { ...s, status: 'rejected', rejection_reason: rejectionReason } : s)
       );

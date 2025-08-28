@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Search, Edit, Trash, ArrowLeft, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { ManagedWallet } from '@/api/entities';
+import { supabase } from '@/lib/supabase';
 import AddWalletModal from '../components/modals/AddWalletModal';
 import EditWalletModal from '../components/modals/EditWalletModal';
 import FeedbackModal from '../components/modals/FeedbackModal';
@@ -35,14 +35,24 @@ export default function AdminManageWallets() {
   const loadWallets = async () => {
     setIsLoading(true);
     try {
-      console.log('Loading wallets from database...');
-      const walletsData = await ManagedWallet.list('name');
-      console.log('Loaded wallets:', walletsData);
+      console.log('🔍 Loading wallets from Supabase...');
+      const { data: walletsData, error } = await supabase
+        .from('managed_wallets')
+        .select('*')
+        .order('name');
+      
+      if (error) {
+        console.error('❌ Error loading wallets:', error);
+        showFeedback('error', 'Error', 'Failed to load wallets. Please refresh the page.');
+        return;
+      }
+      
+      console.log('✅ Loaded wallets:', walletsData);
       // Sort alphabetically
-      const sortedWallets = walletsData.sort((a, b) => a.name.localeCompare(b.name));
+      const sortedWallets = (walletsData || []).sort((a, b) => a.name.localeCompare(b.name));
       setWallets(sortedWallets);
     } catch (error) {
-      console.error('Error loading wallets:', error);
+      console.error('❌ Error loading wallets:', error);
       showFeedback('error', 'Error', 'Failed to load wallets. Please refresh the page.');
     } finally {
       setIsLoading(false);
@@ -56,11 +66,20 @@ export default function AdminManageWallets() {
     try {
       console.log('Toggling wallet status for:', wallet);
       
-      const updatedWallet = await ManagedWallet.update(wallet.id, {
-        name: wallet.name, // Include name to avoid potential issues
-        icon_url: wallet.icon_url || '', // Include icon_url
-        is_active: !wallet.is_active
-      });
+      const { data: updatedWallet, error: updateError } = await supabase
+        .from('managed_wallets')
+        .update({
+          name: wallet.name, // Include name to avoid potential issues
+          icon_url: wallet.icon_url || '', // Include icon_url
+          is_active: !wallet.is_active
+        })
+        .eq('id', wallet.id)
+        .select()
+        .single();
+
+      if (updateError) {
+        throw new Error(`Failed to update wallet: ${updateError.message}`);
+      }
       
       console.log('Successfully toggled wallet status:', updatedWallet);
       showFeedback('success', 'Success', `Wallet ${wallet.name} has been ${!wallet.is_active ? 'activated' : 'deactivated'}.`);
@@ -93,25 +112,43 @@ export default function AdminManageWallets() {
       try {
         console.log('Attempting to delete wallet:', wallet);
         
-        // First, try to get any related wallet submissions
-        const { WalletSubmission } = await import('@/api/entities');
-        const relatedSubmissions = await WalletSubmission.filter({ wallet_name: wallet.name });
+        // First, try to get any related wallet submissions from Supabase
+        const { data: relatedSubmissions, error: submissionsError } = await supabase
+          .from('wallet_submissions')
+          .select('*')
+          .eq('wallet_name', wallet.name);
         
-        console.log('Found related submissions:', relatedSubmissions.length);
+        if (submissionsError) {
+          console.log('Could not fetch related submissions:', submissionsError);
+        }
+        
+        console.log('Found related submissions:', relatedSubmissions?.length || 0);
         
         // Delete related submissions first
-        for (const submission of relatedSubmissions) {
-          try {
-            await WalletSubmission.delete(submission.id);
-            console.log(`Deleted related submission ${submission.id}`);
-          } catch (subError) {
-            console.log(`Could not delete submission ${submission.id}:`, subError);
-            // Continue with other deletions
+        if (relatedSubmissions && relatedSubmissions.length > 0) {
+          const submissionIds = relatedSubmissions.map(s => s.id);
+          const { error: deleteSubmissionsError } = await supabase
+            .from('wallet_submissions')
+            .delete()
+            .in('id', submissionIds);
+          
+          if (deleteSubmissionsError) {
+            console.log('Could not delete some submissions:', deleteSubmissionsError);
+          } else {
+            console.log(`Deleted ${relatedSubmissions.length} related submissions`);
           }
         }
         
-        // Now try to delete the wallet
-        await ManagedWallet.delete(wallet.id);
+        // Now try to delete the wallet from Supabase
+        const { error: deleteWalletError } = await supabase
+          .from('managed_wallets')
+          .delete()
+          .eq('id', wallet.id);
+        
+        if (deleteWalletError) {
+          throw new Error(`Failed to delete wallet: ${deleteWalletError.message}`);
+        }
+        
         console.log('Successfully deleted wallet');
         
         showFeedback('success', 'Success', `${wallet.name} wallet and ${relatedSubmissions.length} related submissions have been deleted successfully.`);
@@ -125,11 +162,18 @@ export default function AdminManageWallets() {
         // Try an alternative approach - just mark as inactive
         try {
           console.log('Deletion failed, trying to deactivate instead...');
-          await ManagedWallet.update(wallet.id, {
-            name: wallet.name,
-            icon_url: wallet.icon_url || '',
-            is_active: false
-          });
+          const { error: deactivateError } = await supabase
+            .from('managed_wallets')
+            .update({
+              name: wallet.name,
+              icon_url: wallet.icon_url || '',
+              is_active: false
+            })
+            .eq('id', wallet.id);
+          
+          if (deactivateError) {
+            throw new Error(`Failed to deactivate wallet: ${deactivateError.message}`);
+          }
           
           showFeedback('success', 'Wallet Deactivated', `${wallet.name} could not be deleted but has been deactivated instead. It will no longer be available to users.`);
           await loadWallets();

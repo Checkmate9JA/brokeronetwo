@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Upload } from 'lucide-react';
-import { ManagedWallet } from '@/api/entities';
+import { supabase } from '@/lib/supabase';
 import { UploadFile } from '@/api/integrations';
 
 export default function EditWalletModal({ isOpen, onClose, onSuccess, wallet }) {
@@ -67,11 +67,20 @@ export default function EditWalletModal({ isOpen, onClose, onSuccess, wallet }) 
         new_icon_url = result.file_url;
       }
 
-      await ManagedWallet.update(wallet.id, {
-        name: name.trim(),
-        icon_url: new_icon_url,
-        is_active: isActive
-      });
+      const { data: updatedWallet, error: updateError } = await supabase
+        .from('managed_wallets')
+        .update({
+          name: name.trim(),
+          icon_url: new_icon_url,
+          is_active: isActive
+        })
+        .eq('id', wallet.id)
+        .select()
+        .single();
+
+      if (updateError) {
+        throw new Error(`Failed to update wallet: ${updateError.message}`);
+      }
 
       onSuccess();
       onClose();

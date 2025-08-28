@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Upload } from 'lucide-react';
-import { ManagedWallet } from '@/api/entities';
+import { supabase } from '@/lib/supabase';
 import { UploadFile } from '@/api/integrations';
 
 export default function AddWalletModal({ isOpen, onClose, onSuccess }) {
@@ -51,11 +51,19 @@ export default function AddWalletModal({ isOpen, onClose, onSuccess }) {
         icon_url = result.file_url;
       }
       
-      await ManagedWallet.create({
-        name: name.trim(),
-        icon_url,
-        is_active: isActive
-      });
+      const { data: newWallet, error: createError } = await supabase
+        .from('managed_wallets')
+        .insert({
+          name: name.trim(),
+          icon_url,
+          is_active: isActive
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        throw new Error(`Failed to create wallet: ${createError.message}`);
+      }
 
       onSuccess();
       onClose();
