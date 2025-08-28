@@ -13,9 +13,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { X, TrendingUp } from 'lucide-react';
-import { Transaction } from '@/api/entities';
+import { supabase } from '@/lib/supabase';
+import { useToast } from '@/components/ui/use-toast';
 
 export default function AddHistoryModal({ isOpen, onClose, userName, userEmail }) {
+  const { toast } = useToast();
   const [transactionType, setTransactionType] = useState('');
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
@@ -27,7 +29,11 @@ export default function AddHistoryModal({ isOpen, onClose, userName, userEmail }
 
   const handleSubmit = async () => {
     if (!transactionType || !amount) {
-      alert('Please fill in transaction type and amount');
+      toast({
+        title: "Validation Error",
+        description: "Please fill in transaction type and amount",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -37,19 +43,34 @@ export default function AddHistoryModal({ isOpen, onClose, userName, userEmail }
         user_email: userEmail,
         type: transactionType,
         amount: parseFloat(amount),
-        description: description,
+        description: description || '',
         status: status,
-        created_date: new Date(date).toISOString()
+        created_at: new Date(date).toISOString()
       };
 
-      await Transaction.create(transactionData);
+      // Insert transaction into Supabase
+      const { error: insertError } = await supabase
+        .from('transactions')
+        .insert(transactionData);
+
+      if (insertError) {
+        throw new Error(`Failed to insert transaction: ${insertError.message}`);
+      }
       
-      alert(`Transaction added successfully!`);
+      toast({
+        title: "Success!",
+        description: "Transaction added successfully!",
+        variant: "success",
+      });
       onClose();
       resetForm();
     } catch (error) {
       console.error('Error with transaction:', error);
-      alert(`Failed to add transaction. Please try again.`);
+      toast({
+        title: "Transaction Failed",
+        description: "Failed to add transaction. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsSubmitting(false);
     }

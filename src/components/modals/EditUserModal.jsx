@@ -31,12 +31,12 @@ export default function EditUserModal({ isOpen, onClose, user, onUpdate }) {
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('user');
   const [withdrawalCode, setWithdrawalCode] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [password, setPassword] = useState(''); // Always starts blank
+  const [confirmPassword, setConfirmPassword] = useState(''); // Always starts blank
   const [isUpdating, setIsUpdating] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('••••••••');
 
-  useEffect(() => {
+    useEffect(() => {
     if (user) {
       const nameParts = user.full_name ? user.full_name.split(' ') : ['', ''];
       setFirstName(nameParts[0] || '');
@@ -47,10 +47,20 @@ export default function EditUserModal({ isOpen, onClose, user, onUpdate }) {
       
       // Set current password placeholder (we can't fetch actual password for security)
       setCurrentPassword('••••••••');
+      
+      // ALWAYS ensure password fields are completely empty and blank
       setPassword('');
       setConfirmPassword('');
     }
   }, [user]);
+
+  // Additional safety: reset password fields whenever modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setPassword('');
+      setConfirmPassword('');
+    }
+  }, [isOpen]);
 
   const handleSubmit = async () => {
     if (!firstName || !email) {
