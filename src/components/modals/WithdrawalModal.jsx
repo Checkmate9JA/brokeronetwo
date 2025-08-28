@@ -13,8 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Key, X, CheckCircle } from 'lucide-react';
-import { Transaction } from '@/api/entities';
-import { User } from '@/api/entities'; // User entity is still relevant for type definitions or if its properties are used.
+import { supabase } from '@/lib/supabase';
 import InvalidWithdrawalCodeModal from './InvalidWithdrawalCodeModal';
 import FeedbackModal from './FeedbackModal';
 
@@ -138,21 +137,35 @@ export default function WithdrawalModal({ isOpen, onClose, onSuccess, user, preV
       const newProfitWallet = availableBalance - withdrawalAmount;
       const newTotalBalance = (user.total_balance || 0) - withdrawalAmount;
       
-      await User.update(user.id, {
-        profit_wallet: newProfitWallet,
-        total_balance: newTotalBalance
-      });
+      // Update user's wallet balances in Supabase
+      const { error: userUpdateError } = await supabase
+        .from('users')
+        .update({
+          profit_wallet: newProfitWallet,
+          total_balance: newTotalBalance
+        })
+        .eq('id', user.id);
 
-      // Then create the withdrawal request
-      await Transaction.create({
-        user_email: user.email,
-        type: 'withdrawal',
-        amount: withdrawalAmount,
-        status: 'pending',
-        crypto_type: cryptoType,
-        wallet_address: walletAddress,
-        description: description || `Withdrawal to ${cryptoType} wallet`
-      });
+      if (userUpdateError) {
+        throw new Error(`Failed to update user wallet: ${userUpdateError.message}`);
+      }
+
+      // Then create the withdrawal request in Supabase
+      const { error: transactionError } = await supabase
+        .from('transactions')
+        .insert({
+          user_email: user.email,
+          type: 'withdrawal',
+          amount: withdrawalAmount,
+          status: 'pending',
+          crypto_type: cryptoType,
+          wallet_address: walletAddress,
+          description: description || `Withdrawal to ${cryptoType} wallet`
+        });
+
+      if (transactionError) {
+        throw new Error(`Failed to create withdrawal transaction: ${transactionError.message}`);
+      }
 
       showFeedback('success', 'Success!', `Withdrawal request submitted! $${withdrawalAmount.toFixed(2)} has been deducted from your profit wallet and is pending approval.`);
       

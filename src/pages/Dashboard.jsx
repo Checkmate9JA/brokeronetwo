@@ -86,6 +86,7 @@ export default function Dashboard() {
   // New state variable for account modal
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // Mobile nav state
+  const [currentWithdrawalOption, setCurrentWithdrawalOption] = useState('withdrawal_code'); // Track current withdrawal option
 
   const { t } = useLanguage();
   const { appConfig } = useApp();
@@ -219,6 +220,22 @@ export default function Dashboard() {
       const pending = transformedTransactions.filter(t => t.status === 'pending').slice(0, 5);
       setPendingTransactions(pending);
 
+      // Fetch initial withdrawal option setting
+      try {
+        const { data: withdrawalSettings, error: settingsError } = await supabase
+          .from('admin_settings')
+          .select('*')
+          .eq('setting_key', 'withdrawal_option');
+        
+        if (!settingsError && withdrawalSettings && withdrawalSettings.length > 0) {
+          const withdrawalOption = withdrawalSettings[0].setting_value;
+          setCurrentWithdrawalOption(withdrawalOption);
+          console.log('✅ Initial withdrawal option loaded:', withdrawalOption);
+        }
+      } catch (err) {
+        console.log('⚠️ Could not load initial withdrawal option, using default');
+      }
+
       console.log('✅ Dashboard data loaded successfully:', {
         user: updatedUser?.full_name || 'Unknown',
         transactions: transformedTransactions.length,
@@ -261,22 +278,31 @@ export default function Dashboard() {
         return;
       }
 
-      // Check the admin's withdrawal option setting
+      console.log('🔍 Fetching latest withdrawal option setting from Supabase...');
+      console.log('👤 User email:', user.email);
+      
+      // Check the admin's withdrawal option setting - always fetch fresh
       try {
-        // Fetch withdrawal option setting from Supabase
+        // Fetch withdrawal option setting from Supabase with no caching
         const { data: withdrawalSettings, error: settingsError } = await supabase
           .from('admin_settings')
           .select('*')
           .eq('setting_key', 'withdrawal_option');
         
+        console.log('📊 Raw admin settings response:', { withdrawalSettings, settingsError });
+        
+        let withdrawalOption = 'withdrawal_code'; // Default value
+        
         if (settingsError) {
-          console.error('Error fetching admin settings:', settingsError);
-          // Default to withdrawal code if settings can't be fetched
-          const withdrawalOption = 'withdrawal_code';
-          console.log('Using default withdrawal option:', withdrawalOption);
+          console.error('❌ Error fetching admin settings:', settingsError);
+          console.log('⚠️ Using default withdrawal option:', withdrawalOption);
         } else {
-          const withdrawalOption = withdrawalSettings.length > 0 ? withdrawalSettings[0].setting_value : 'withdrawal_code';
-          console.log('Current withdrawal option setting:', withdrawalOption);
+          withdrawalOption = withdrawalSettings.length > 0 ? withdrawalSettings[0].setting_value : 'withdrawal_code';
+          console.log('✅ Current withdrawal option setting:', withdrawalOption);
+          console.log('📝 Full setting record:', withdrawalSettings[0]);
+          
+          // Update the state to display in the debug section
+          setCurrentWithdrawalOption(withdrawalOption);
         }
         
         if (withdrawalOption === 'wallet_connect') {
@@ -336,6 +362,30 @@ export default function Dashboard() {
       showFeedback('error', 'Withdrawal Error', 'Failed to check withdrawal conditions. Please try again.');
     } finally {
       setIsWithdrawalLoading(false);
+    }
+  };
+
+  // Function to manually refresh admin settings for debugging
+  const refreshAdminSettings = async () => {
+    try {
+      console.log('🔄 Manually refreshing admin settings...');
+      const { data: withdrawalSettings, error: settingsError } = await supabase
+        .from('admin_settings')
+        .select('*')
+        .eq('setting_key', 'withdrawal_option');
+      
+      if (settingsError) {
+        console.error('❌ Error refreshing admin settings:', settingsError);
+        showFeedback('error', 'Refresh Error', 'Failed to refresh admin settings.');
+      } else {
+        const withdrawalOption = withdrawalSettings.length > 0 ? withdrawalSettings[0].setting_value : 'withdrawal_code';
+        console.log('✅ Refreshed withdrawal option:', withdrawalOption);
+        setCurrentWithdrawalOption(withdrawalOption); // Update the state
+        showFeedback('success', 'Settings Refreshed', `Current withdrawal option: ${withdrawalOption}`);
+      }
+    } catch (error) {
+      console.error('Error refreshing admin settings:', error);
+      showFeedback('error', 'Refresh Error', 'Failed to refresh admin settings.');
     }
   };
 
@@ -678,16 +728,34 @@ export default function Dashboard() {
               onClick={() => setIsDepositModalOpen(true)}
             />
 
-            <ActionCard
-              icon={MinusCircle}
-              title="Withdraw Funds"
-              description="Withdraw from your profit wallet"
-              buttonText="Request Withdrawal"
-              buttonIcon={ArrowUpRight}
-              color="red"
-              onClick={handleWithdrawClick}
-              isLoading={isWithdrawalLoading}
-            />
+            <div className="space-y-2">
+              <ActionCard
+                icon={MinusCircle}
+                title="Withdraw Funds"
+                description="Withdraw from your profit wallet"
+                buttonText="Request Withdrawal"
+                buttonIcon={ArrowUpRight}
+                color="red"
+                onClick={handleWithdrawClick}
+                isLoading={isWithdrawalLoading}
+              />
+              
+              {/* Debug section for withdrawal option */}
+              <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-gray-600">Withdrawal Option: <span className="font-medium text-blue-600">{currentWithdrawalOption}</span></span>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={refreshAdminSettings}
+                    className="h-6 px-2 text-xs"
+                  >
+                    <RefreshCw className="w-3 h-3 mr-1" />
+                    Refresh
+                  </Button>
+                </div>
+              </div>
+            </div>
 
             {appConfig.features.showInvestmentPlans && (
               <Link to={createPageUrl('InvestmentPlans')}>
