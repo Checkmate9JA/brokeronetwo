@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { X, Clock, Trash2, ArrowDownLeft, ArrowUpRight, AlertTriangle } from 'lucide-react';
-import { Transaction } from '@/api/entities';
+import { supabase } from '@/lib/supabase';
 import ConfirmationModal from './ConfirmationModal';
 import {
   Tooltip,
@@ -59,12 +59,37 @@ export default function PendingTransactionsModal({ isOpen, onClose }) {
   const loadPendingTransactions = async () => {
     setIsLoading(true); // Ensure loading state is true when starting load
     try {
-      const [deposits, withdrawals, rejectedDep, rejectedWith] = await Promise.all([
-        Transaction.filter({ type: 'deposit', status: 'pending' }, '-created_date'),
-        Transaction.filter({ type: 'withdrawal', status: 'pending' }, '-created_date'),
-        Transaction.filter({ type: 'deposit', status: 'rejected' }, '-created_date'),
-        Transaction.filter({ type: 'withdrawal', status: 'rejected' }, '-created_date')
-      ]);
+      console.log('🔍 Loading pending transactions from Supabase...');
+      
+      // Fetch all transaction types from Supabase
+      const { data: allTransactions, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching transactions:', error);
+        setPendingDeposits([]);
+        setPendingWithdrawals([]);
+        setRejectedDeposits([]);
+        setRejectedWithdrawals([]);
+        return;
+      }
+
+      console.log('✅ Transactions loaded:', allTransactions?.length || 0);
+
+      // Filter transactions by type and status
+      const deposits = allTransactions?.filter(t => t.type === 'deposit' && t.status === 'pending') || [];
+      const withdrawals = allTransactions?.filter(t => t.type === 'withdrawal' && t.status === 'pending') || [];
+      const rejectedDep = allTransactions?.filter(t => t.type === 'deposit' && t.status === 'rejected') || [];
+      const rejectedWith = allTransactions?.filter(t => t.type === 'withdrawal' && t.status === 'rejected') || [];
+      
+      console.log('📊 Transaction counts:', {
+        pendingDeposits: deposits.length,
+        pendingWithdrawals: withdrawals.length,
+        rejectedDeposits: rejectedDep.length,
+        rejectedWithdrawals: rejectedWith.length
+      });
       
       setPendingDeposits(deposits);
       setPendingWithdrawals(withdrawals);
@@ -72,7 +97,11 @@ export default function PendingTransactionsModal({ isOpen, onClose }) {
       setRejectedWithdrawals(rejectedWith);
     } catch (error) {
       console.error('Error loading pending transactions:', error);
-      // Optionally, show an error message to the user
+      // Set empty arrays on error
+      setPendingDeposits([]);
+      setPendingWithdrawals([]);
+      setRejectedDeposits([]);
+      setRejectedWithdrawals([]);
     } finally {
       setIsLoading(false);
     }
@@ -94,8 +123,15 @@ export default function PendingTransactionsModal({ isOpen, onClose }) {
         return;
       }
 
-      // Delete each rejected transaction permanently
-      await Promise.all(rejectedIds.map(id => Transaction.delete(id)));
+      // Delete each rejected transaction permanently from Supabase
+      const { error: deleteError } = await supabase
+        .from('transactions')
+        .delete()
+        .in('id', rejectedIds);
+      
+      if (deleteError) {
+        throw new Error(`Failed to delete transactions: ${deleteError.message}`);
+      }
 
       // Clear the local state
       setRejectedDeposits([]);

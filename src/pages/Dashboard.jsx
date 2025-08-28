@@ -182,6 +182,7 @@ export default function Dashboard() {
        // Fetch all transactions for the current user from Supabase
        let allUserTransactions = [];
       try {
+        // Fetch all transactions for the current user from Supabase
         const { data: transactionsData, error: transactionsError } = await supabase
           .from('transactions')
           .select('*')

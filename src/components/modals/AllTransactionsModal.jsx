@@ -8,8 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Zap, TrendingUp, ArrowRightLeft, ArrowUpRight, ArrowDownLeft, Gift } from 'lucide-react';
-import { Transaction } from '@/api/entities';
-import { User } from '@/api/entities';
+import { supabase } from '@/lib/supabase';
 
 const iconMap = {
   deposit: ArrowDownLeft,
@@ -28,17 +27,63 @@ export default function AllTransactionsModal({ isOpen, onClose }) {
     const fetchUserAndTransactions = async () => {
         setIsLoading(true);
         try {
-            const user = await User.me();
-            setCurrentUser(user);
-
-            let fetchedTransactions;
-            if (user && user.role === 'admin') {
-                fetchedTransactions = await Transaction.list('-created_date');
-            } else if (user) {
-                fetchedTransactions = await Transaction.filter({ created_by: user.email }, '-created_date');
-            } else {
-                fetchedTransactions = [];
+            console.log('🔍 Loading user and transactions from Supabase...');
+            
+            // Get current user from Supabase auth
+            const { data: { user }, error: userError } = await supabase.auth.getUser();
+            
+            if (userError || !user) {
+                console.error('Error getting user:', userError);
+                setCurrentUser(null);
+                setTransactions([]);
+                return;
             }
+
+            // Get user profile from users table
+            const { data: userProfile, error: profileError } = await supabase
+                .from('users')
+                .select('*')
+                .eq('email', user.email)
+                .single();
+
+            if (profileError) {
+                console.error('Error fetching user profile:', profileError);
+                // Use basic user info if profile fetch fails
+                setCurrentUser({ ...user, role: 'user' });
+            } else {
+                setCurrentUser(userProfile);
+            }
+
+            let fetchedTransactions = [];
+            
+            if (userProfile && userProfile.role === 'admin') {
+                // Admin can see all transactions
+                const { data: allTransactions, error: transactionsError } = await supabase
+                    .from('transactions')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                
+                if (transactionsError) {
+                    console.error('Error fetching all transactions:', transactionsError);
+                } else {
+                    fetchedTransactions = allTransactions || [];
+                }
+            } else if (user) {
+                // Regular user sees only their transactions
+                const { data: userTransactions, error: transactionsError } = await supabase
+                    .from('transactions')
+                    .select('*')
+                    .or(`user_email.eq.${user.email},created_by.eq.${user.email}`)
+                    .order('created_at', { ascending: false });
+                
+                if (transactionsError) {
+                    console.error('Error fetching user transactions:', transactionsError);
+                } else {
+                    fetchedTransactions = userTransactions || [];
+                }
+            }
+
+            console.log('✅ Transactions loaded:', fetchedTransactions.length);
             setTransactions(fetchedTransactions);
         } catch (error) {
             console.error('Error loading user and transactions:', error);
