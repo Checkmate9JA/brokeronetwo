@@ -31,8 +31,8 @@ export default function EditUserModal({ isOpen, onClose, user, onUpdate }) {
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('user');
   const [withdrawalCode, setWithdrawalCode] = useState('');
-  const [password, setPassword] = useState(''); // CRITICAL: Must be empty string
-  const [confirmPassword, setConfirmPassword] = useState(''); // CRITICAL: Must be empty string
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('••••••••');
 
@@ -54,18 +54,13 @@ export default function EditUserModal({ isOpen, onClose, user, onUpdate }) {
     }
   }, [user]);
 
-  // CRITICAL: Reset password fields whenever modal opens or user changes
+  // Reset password fields when modal opens
   useEffect(() => {
     if (isOpen) {
-      // Force password fields to be completely empty
-      clearPasswordFields();
-      
-      // Additional safety: use setTimeout to ensure state is cleared after render
-      setTimeout(() => {
-        clearPasswordFields();
-      }, 0);
+      setPassword('');
+      setConfirmPassword('');
     }
-  }, [isOpen, user]);
+  }, [isOpen]);
 
   const handleSubmit = async () => {
     if (!firstName || !email) {
@@ -151,14 +146,10 @@ export default function EditUserModal({ isOpen, onClose, user, onUpdate }) {
     setWithdrawalCode(newCode);
   };
 
-  // CRITICAL: Function to ensure password fields are always empty
-  const clearPasswordFields = () => {
-    setPassword('');
-    setConfirmPassword('');
-  };
+
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose} key={user?.id || 'no-user'}>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
         <DialogHeader className="flex flex-row items-center justify-between sticky top-0 bg-white z-10 py-4 border-b">
           <div className="flex items-center gap-2">
@@ -254,31 +245,29 @@ export default function EditUserModal({ isOpen, onClose, user, onUpdate }) {
              </p>
            </div>
 
-                       <div>
-              <Label htmlFor="new-password" className="font-semibold">New Password</Label>
-              <Input
-                key={`new-password-${user?.id || 'no-user'}`}
-                id="new-password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-2"
-                placeholder="Enter new password or leave blank"
-              />
-            </div>
+                                               <div>
+               <Label htmlFor="new-password" className="font-semibold">New Password</Label>
+               <Input
+                 id="new-password"
+                 type="password"
+                 value={password}
+                 onChange={(e) => setPassword(e.target.value)}
+                 className="mt-2"
+                 placeholder="Enter new password or leave blank"
+               />
+             </div>
 
-            <div>
-              <Label htmlFor="confirm-password" className="font-semibold">Confirm New Password</Label>
-              <Input
-                key={`confirm-password-${user?.id || 'no-user'}`}
-                id="confirm-password"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="mt-2"
-                placeholder="Confirm new password"
-              />
-            </div>
+             <div>
+               <Label htmlFor="confirm-password" className="font-semibold">Confirm New Password</Label>
+               <Input
+                 id="confirm-password"
+                 type="password"
+                 value={confirmPassword}
+                 onChange={(e) => setConfirmPassword(e.target.value)}
+                 className="mt-2"
+                 placeholder="Confirm new password"
+               />
+             </div>
 
           <div className="flex gap-3 pt-4">
             <Button
