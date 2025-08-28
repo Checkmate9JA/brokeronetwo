@@ -21,7 +21,8 @@ import {
   Crown,
   Menu, // For mobile nav
   User as UserIcon, // For Account Icon
-  Shield // For Admin View in mobile
+  Shield, // For Admin View in mobile
+  RefreshCw
 } from 'lucide-react';
 import WithdrawalOptionModal from '../components/modals/WithdrawalOptionModal';
 import PaymentSettingsModal from '../components/modals/PaymentSettingsModal';
@@ -100,37 +101,55 @@ export default function AdminDashboard() {
       let allTransactions = [];
       let plans = [];
 
+      // Fetch users
       try {
+        console.log('📊 Fetching users...');
         const { data: usersData, error: usersError } = await supabase.from('users').select('*');
         if (usersError) {
-          console.error('Error fetching users:', usersError);
+          console.error('❌ Error fetching users:', usersError);
+          if (usersError.code === 'PGRST116') {
+            console.log('⚠️ Users table does not exist');
+          }
         } else {
           users = usersData || [];
+          console.log(`✅ Users fetched: ${users.length}`);
         }
       } catch (err) {
-        console.log('Users table not available, using empty array');
+        console.log('⚠️ Users table not available, using empty array');
       }
 
+      // Fetch transactions
       try {
+        console.log('📊 Fetching transactions...');
         const { data: transactionsData, error: transactionsError } = await supabase.from('transactions').select('*');
         if (transactionsError) {
-          console.error('Error fetching transactions:', transactionsError);
+          console.error('❌ Error fetching transactions:', transactionsError);
+          if (transactionsError.code === 'PGRST116') {
+            console.log('⚠️ Transactions table does not exist');
+          }
         } else {
           allTransactions = transactionsData || [];
+          console.log(`✅ Transactions fetched: ${allTransactions.length}`);
         }
       } catch (err) {
-        console.log('Transactions table not available, using empty array');
+        console.log('⚠️ Transactions table not available, using empty array');
       }
 
+      // Fetch investment plans
       try {
+        console.log('📊 Fetching investment plans...');
         const { data: plansData, error: plansError } = await supabase.from('investment_plans').select('*');
         if (plansError) {
-          console.error('Error fetching investment plans:', plansError);
+          console.error('❌ Error fetching investment plans:', plansError);
+          if (plansError.code === 'PGRST116') {
+            console.log('⚠️ Investment plans table does not exist');
+          }
         } else {
           plans = plansData || [];
+          console.log(`✅ Investment plans fetched: ${plans.length}`);
         }
       } catch (err) {
-        console.log('Investment plans table not available, using empty array');
+        console.log('⚠️ Investment plans table not available, using empty array');
       }
 
       const deposits = allTransactions.filter(t => t.type === 'deposit' && t.status === 'pending');
@@ -161,7 +180,15 @@ export default function AdminDashboard() {
           investmentPlans: 4
         };
       } else {
-        finalStats = newStats;
+        // Use real data but ensure we have at least some values
+        finalStats = {
+          totalUsers: Math.max(users.length, 1),
+          pendingDeposits: Math.max(deposits.length, 0),
+          pendingDepositsAmount: Math.max(pendingDepositsAmount, 0),
+          pendingWithdrawals: Math.max(withdrawals.length, 0),
+          pendingWithdrawalsAmount: Math.max(pendingWithdrawalsAmount, 0),
+          investmentPlans: Math.max(plans.length, 1)
+        };
       }
 
       console.log('✅ Admin stats loaded successfully:', finalStats);
@@ -202,10 +229,22 @@ export default function AdminDashboard() {
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-4 lg:px-8 py-4 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="text-xl md:text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-            <p className="text-sm text-gray-500 hidden md:block">Manage users, monitor activities, and oversee platform operations.</p>
-          </div>
+                     <div>
+             <h1 className="text-xl md:text-2xl font-bold text-gray-900">Admin Dashboard</h1>
+             <p className="text-sm text-gray-500 hidden md:block">Manage users, monitor activities, and oversee platform operations.</p>
+           </div>
+           
+           {/* Refresh Button */}
+           <Button 
+             variant="outline" 
+             size="sm" 
+             onClick={loadStats}
+             disabled={isLoading}
+             className="text-blue-600 border-blue-200 hover:bg-blue-50"
+           >
+             <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+             Refresh Stats
+           </Button>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-3">
@@ -292,63 +331,87 @@ export default function AdminDashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 lg:px-8 py-8">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Link to={createPageUrl('AdminUsers')}>
-            <Card className="p-6 hover:shadow-md transition-shadow cursor-pointer">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-blue-100 rounded-lg">
-                  <Users className="w-6 h-6 text-blue-600" />
-                </div>
-                <div>
-                  <div className="text-sm font-medium text-gray-600">Total Users</div>
-                  <div className="text-2xl font-bold text-gray-900">{stats.totalUsers}</div>
-                </div>
-              </div>
-            </Card>
-          </Link>
+                 {/* Stats Cards */}
+         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+           <Link to={createPageUrl('AdminUsers')}>
+             <Card className="p-6 hover:shadow-md transition-shadow cursor-pointer">
+               <div className="flex items-center gap-4">
+                 <div className="p-3 bg-blue-100 rounded-lg">
+                   <Users className="w-6 h-6 text-blue-600" />
+                 </div>
+                 <div>
+                   <div className="text-sm font-medium text-gray-600">Total Users</div>
+                   <div className="text-2xl font-bold text-gray-900">
+                     {isLoading ? (
+                       <div className="animate-pulse bg-gray-200 h-8 w-16 rounded"></div>
+                     ) : (
+                       stats.totalUsers
+                     )}
+                   </div>
+                 </div>
+               </div>
+             </Card>
+           </Link>
 
-          <Link to={createPageUrl('AdminPendingDeposits')}>
-            <Card className="p-6 hover:shadow-md transition-shadow cursor-pointer">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-green-100 rounded-lg">
-                  <DollarSign className="w-6 h-6 text-green-600" />
-                </div>
-                <div>
-                  <div className="text-sm font-medium text-gray-600">Pending Deposits</div>
-                  <div className="text-2xl font-bold text-green-600">{stats.pendingDeposits} (${stats.pendingDepositsAmount.toFixed(2)})</div>
-                </div>
-              </div>
-            </Card>
-          </Link>
+                     <Link to={createPageUrl('AdminPendingDeposits')}>
+             <Card className="p-6 hover:shadow-md transition-shadow cursor-pointer">
+               <div className="flex items-center gap-4">
+                 <div className="p-3 bg-green-100 rounded-lg">
+                   <DollarSign className="w-6 h-6 text-green-600" />
+                 </div>
+                 <div>
+                   <div className="text-sm font-medium text-gray-600">Pending Deposits</div>
+                   <div className="text-2xl font-bold text-green-600">
+                     {isLoading ? (
+                       <div className="animate-pulse bg-gray-200 h-8 w-24 rounded"></div>
+                     ) : (
+                       `${stats.pendingDeposits} ($${stats.pendingDepositsAmount.toFixed(2)})`
+                     )}
+                   </div>
+                 </div>
+               </div>
+             </Card>
+           </Link>
 
-          <Link to={createPageUrl('AdminPendingWithdrawals')}>
-            <Card className="p-6 hover:shadow-md transition-shadow cursor-pointer">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-red-100 rounded-lg">
-                  <CreditCard className="w-6 h-6 text-red-600" />
-                </div>
-                <div>
-                  <div className="text-sm font-medium text-gray-600">Pending Withdrawals</div>
-                  <div className="text-2xl font-bold text-red-600">{stats.pendingWithdrawals} (${stats.pendingWithdrawalsAmount.toFixed(2)})</div>
-                </div>
-              </div>
-            </Card>
-          </Link>
+                     <Link to={createPageUrl('AdminPendingWithdrawals')}>
+             <Card className="p-6 hover:shadow-md transition-shadow cursor-pointer">
+               <div className="flex items-center gap-4">
+                 <div className="p-3 bg-red-100 rounded-lg">
+                   <CreditCard className="w-6 h-6 text-red-600" />
+                 </div>
+                 <div>
+                   <div className="text-sm font-medium text-gray-600">Pending Withdrawals</div>
+                   <div className="text-2xl font-bold text-red-600">
+                     {isLoading ? (
+                       <div className="animate-pulse bg-gray-200 h-8 w-24 rounded"></div>
+                     ) : (
+                       `${stats.pendingWithdrawals} ($${stats.pendingWithdrawalsAmount.toFixed(2)})`
+                     )}
+                   </div>
+                 </div>
+               </div>
+             </Card>
+           </Link>
 
-          <Link to={createPageUrl('AdminInvestmentPlans')}>
-            <Card className="p-6 hover:shadow-md transition-shadow cursor-pointer">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-purple-100 rounded-lg">
-                  <TrendingUp className="w-6 h-6 text-purple-600" />
-                </div>
-                <div>
-                  <div className="text-sm font-medium text-gray-600">Investment Plans</div>
-                  <div className="text-2xl font-bold text-purple-600">{stats.investmentPlans} Active</div>
-                </div>
-              </div>
-            </Card>
-          </Link>
+                     <Link to={createPageUrl('AdminInvestmentPlans')}>
+             <Card className="p-6 hover:shadow-md transition-shadow cursor-pointer">
+               <div className="flex items-center gap-4">
+                 <div className="p-3 bg-purple-100 rounded-lg">
+                   <TrendingUp className="w-6 h-6 text-purple-600" />
+                 </div>
+                 <div>
+                   <div className="text-sm font-medium text-gray-600">Investment Plans</div>
+                   <div className="text-2xl font-bold text-purple-600">
+                     {isLoading ? (
+                       <div className="animate-pulse bg-gray-200 h-8 w-20 rounded"></div>
+                     ) : (
+                       `${stats.investmentPlans} Active`
+                     )}
+                   </div>
+                 </div>
+               </div>
+             </Card>
+           </Link>
         </div>
 
         {/* Quick Actions */}

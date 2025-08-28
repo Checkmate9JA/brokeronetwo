@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Settings, X } from 'lucide-react';
-import { AdminSetting } from '@/api/entities';
+import { supabase } from '@/lib/supabase';
 
 export default function WithdrawalOptionModal({ isOpen, onClose, onUpdate }) {
   const [selectedOption, setSelectedOption] = useState('withdrawal_code');
@@ -28,10 +28,20 @@ export default function WithdrawalOptionModal({ isOpen, onClose, onUpdate }) {
   const loadCurrentSetting = async () => {
     setIsLoading(true);
     try {
-      const settings = await AdminSetting.filter({ setting_key: 'withdrawal_option' });
-      if (settings.length > 0) {
+      console.log('🔍 Loading current withdrawal option from Supabase...');
+      const { data: settings, error } = await supabase
+        .from('admin_settings')
+        .select('*')
+        .eq('setting_key', 'withdrawal_option');
+      
+      if (error) {
+        console.error('Error loading withdrawal option:', error);
+        setSelectedOption('withdrawal_code'); // Fallback to default
+      } else if (settings && settings.length > 0) {
+        console.log('✅ Current withdrawal option loaded:', settings[0].setting_value);
         setSelectedOption(settings[0].setting_value || 'withdrawal_code');
       } else {
+        console.log('📝 No withdrawal option found, using default');
         setSelectedOption('withdrawal_code'); // Default
       }
     } catch (error) {
@@ -45,20 +55,47 @@ export default function WithdrawalOptionModal({ isOpen, onClose, onUpdate }) {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // Check if setting already exists
-      const existingSettings = await AdminSetting.filter({ setting_key: 'withdrawal_option' });
+      console.log('💾 Saving withdrawal option to Supabase:', selectedOption);
       
-      if (existingSettings.length > 0) {
+      // Check if setting already exists
+      const { data: existingSettings, error: fetchError } = await supabase
+        .from('admin_settings')
+        .select('*')
+        .eq('setting_key', 'withdrawal_option');
+      
+      if (fetchError) {
+        console.error('Error checking existing settings:', fetchError);
+        throw fetchError;
+      }
+      
+      if (existingSettings && existingSettings.length > 0) {
         // Update existing setting
-        await AdminSetting.update(existingSettings[0].id, {
-          setting_value: selectedOption
-        });
+        console.log('🔄 Updating existing withdrawal option...');
+        const { error: updateError } = await supabase
+          .from('admin_settings')
+          .update({ setting_value: selectedOption })
+          .eq('id', existingSettings[0].id);
+        
+        if (updateError) {
+          console.error('Error updating withdrawal option:', updateError);
+          throw updateError;
+        }
+        console.log('✅ Withdrawal option updated successfully');
       } else {
         // Create new setting
-        await AdminSetting.create({
-          setting_key: 'withdrawal_option',
-          setting_value: selectedOption
-        });
+        console.log('🆕 Creating new withdrawal option...');
+        const { error: insertError } = await supabase
+          .from('admin_settings')
+          .insert({
+            setting_key: 'withdrawal_option',
+            setting_value: selectedOption
+          });
+        
+        if (insertError) {
+          console.error('Error creating withdrawal option:', insertError);
+          throw insertError;
+        }
+        console.log('✅ Withdrawal option created successfully');
       }
       
       onUpdate?.(selectedOption);
