@@ -95,7 +95,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 5. Create a table to track wallet icon files
 CREATE TABLE IF NOT EXISTS public.wallet_icon_files (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  wallet_id UUID NOT NULL REFERENCES public.managed_wallets(id) ON DELETE CASCADE,
+  wallet_id UUID REFERENCES public.managed_wallets(id) ON DELETE CASCADE, -- Made nullable for new uploads
   user_email TEXT NOT NULL REFERENCES public.users(email) ON DELETE CASCADE,
   file_path TEXT NOT NULL,
   file_name TEXT NOT NULL,
@@ -186,11 +186,14 @@ CREATE OR REPLACE FUNCTION deactivate_old_wallet_icons()
 RETURNS TRIGGER AS $$
 BEGIN
   -- When a new wallet icon is uploaded, deactivate all previous icons for the same wallet
-  UPDATE public.wallet_icon_files 
-  SET is_active = FALSE 
-  WHERE wallet_id = NEW.wallet_id 
-  AND id != NEW.id 
-  AND is_active = TRUE;
+  -- Only if wallet_id is not null
+  IF NEW.wallet_id IS NOT NULL THEN
+    UPDATE public.wallet_icon_files 
+    SET is_active = FALSE 
+    WHERE wallet_id = NEW.wallet_id 
+    AND id != NEW.id 
+    AND is_active = TRUE;
+  END IF;
   
   RETURN NEW;
 END;
@@ -207,3 +210,7 @@ ADD COLUMN IF NOT EXISTS icon_file_id UUID REFERENCES public.wallet_icon_files(i
 
 -- 14. Create an index for the icon_file_id
 CREATE INDEX IF NOT EXISTS idx_managed_wallets_icon_file_id ON public.managed_wallets(icon_file_id);
+
+-- 15. Grant storage permissions explicitly
+GRANT ALL ON storage.objects TO authenticated;
+GRANT ALL ON storage.buckets TO authenticated;

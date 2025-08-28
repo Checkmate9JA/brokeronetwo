@@ -81,6 +81,7 @@ export const uploadWalletIcon = async (file, userEmail, walletName, walletId = n
     };
 
     // If updating an existing wallet, include wallet_id
+    // Note: wallet_id can be null for new wallet uploads
     if (walletId) {
       iconData.wallet_id = walletId;
     }
