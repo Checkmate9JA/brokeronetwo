@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Dialog, 
   DialogContent, 
@@ -34,6 +34,10 @@ export default function AddNewUserModal({ isOpen, onClose, onSuccess }) {
   const [role, setRole] = useState('user');
   const [isCreating, setIsCreating] = useState(false);
 
+  // Refs for password fields to force clear them
+  const passwordRef = useRef(null);
+  const confirmPasswordRef = useRef(null);
+
   // Reset form fields when modal opens
   useEffect(() => {
     if (isOpen) {
@@ -45,15 +49,30 @@ export default function AddNewUserModal({ isOpen, onClose, onSuccess }) {
       setConfirmPassword('');
       setRole('user');
       
-      // Force a small delay to ensure state is properly reset
+      // Force multiple resets to ensure fields are blank
       setTimeout(() => {
-        setFirstName('');
-        setLastName('');
-        setEmail('');
         setPassword('');
         setConfirmPassword('');
-        setRole('user');
+        // Directly clear the input values using refs
+        if (passwordRef.current) passwordRef.current.value = '';
+        if (confirmPasswordRef.current) confirmPasswordRef.current.value = '';
       }, 10);
+      
+      setTimeout(() => {
+        setPassword('');
+        setConfirmPassword('');
+        // Directly clear the input values using refs
+        if (passwordRef.current) passwordRef.current.value = '';
+        if (confirmPasswordRef.current) confirmPasswordRef.current.value = '';
+      }, 50);
+      
+      setTimeout(() => {
+        setPassword('');
+        setConfirmPassword('');
+        // Directly clear the input values using refs
+        if (passwordRef.current) passwordRef.current.value = '';
+        if (confirmPasswordRef.current) confirmPasswordRef.current.value = '';
+      }, 100);
     }
   }, [isOpen]);
 
@@ -147,6 +166,10 @@ export default function AddNewUserModal({ isOpen, onClose, onSuccess }) {
     setPassword('');
     setConfirmPassword('');
     setRole('user');
+    
+    // Directly clear the input values using refs
+    if (passwordRef.current) passwordRef.current.value = '';
+    if (confirmPasswordRef.current) confirmPasswordRef.current.value = '';
   };
 
   return (
@@ -217,8 +240,13 @@ export default function AddNewUserModal({ isOpen, onClose, onSuccess }) {
               placeholder="Enter password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              onFocus={() => {
+                setPassword('');
+                if (passwordRef.current) passwordRef.current.value = '';
+              }}
               className="mt-2"
               key={`password-${isOpen}`}
+              ref={passwordRef}
             />
           </div>
 
@@ -230,8 +258,13 @@ export default function AddNewUserModal({ isOpen, onClose, onSuccess }) {
               placeholder="Confirm password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
+              onFocus={() => {
+                setConfirmPassword('');
+                if (confirmPasswordRef.current) confirmPasswordRef.current.value = '';
+              }}
               className="mt-2"
               key={`confirm-password-${isOpen}`}
+              ref={confirmPasswordRef}
             />
           </div>
 
