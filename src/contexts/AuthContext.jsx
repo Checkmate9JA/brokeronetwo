@@ -18,6 +18,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
   const [supabaseError, setSupabaseError] = useState(false)
   const [forceRedirect, setForceRedirect] = useState(false)
+  const [emergencyMode, setEmergencyMode] = useState(false) // Emergency mode to stop loops
 
   const fetchUserProfile = useCallback(async (email) => {
     if (!email) {
@@ -29,45 +30,23 @@ export const AuthProvider = ({ children }) => {
     try {
       console.log('fetchUserProfile: Fetching profile for email:', email)
       
-      // Add timeout to prevent hanging
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Profile fetch timeout')), 10000) // 10 second timeout
-      })
+      // Simple direct table access - more reliable
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email)
+        .single()
       
-      // First try to get profile using the secure function
-      const profilePromise = supabase
-        .rpc('get_user_profile', { user_email: email })
-
-      const { data, error } = await Promise.race([profilePromise, timeoutPromise])
-
       if (error) {
-        console.error('Error fetching user profile via function:', error)
-        
-        // Fallback: try direct table access
-        console.log('fetchUserProfile: Trying fallback direct table access')
-        const fallbackPromise = supabase
-          .from('users')
-          .select('*')
-          .eq('email', email)
-          .single()
-        
-        const fallbackResult = await Promise.race([fallbackPromise, timeoutPromise])
-        
-        if (fallbackResult.error) {
-          console.error('Fallback profile fetch also failed:', fallbackResult.error)
-          console.log('fetchUserProfile: Setting profile to null due to error')
-          setUserProfile(null)
-          return
-        }
-        
-        console.log('fetchUserProfile: Successfully fetched profile via fallback:', fallbackResult.data)
-        setUserProfile(fallbackResult.data)
+        console.error('Error fetching user profile:', error)
+        console.log('fetchUserProfile: Setting profile to null due to error')
+        setUserProfile(null)
         return
       }
-
-      if (data && data.length > 0) {
-        console.log('fetchUserProfile: Successfully fetched profile via function:', data[0])
-        setUserProfile(data[0])
+      
+      if (data) {
+        console.log('fetchUserProfile: Successfully fetched profile:', data)
+        setUserProfile(data)
       } else {
         console.log('fetchUserProfile: No profile data returned, setting to null')
         setUserProfile(null)
@@ -124,21 +103,23 @@ export const AuthProvider = ({ children }) => {
           sessionStorage.clear()
           setUser(null)
           setUserProfile(null)
-        } else {
-          setUser(session?.user ?? null)
-          if (session?.user) {
-            console.log('Initial session has user, fetching profile...')
-            try {
-              await fetchUserProfile(session.user.email)
-              console.log('Initial profile fetch completed')
-            } catch (error) {
-              console.error('Error in initial profile fetch:', error)
-            }
-          } else {
-            console.log('No user in initial session')
-            setUserProfile(null)
-          }
-        }
+                 } else {
+           setUser(session?.user ?? null)
+           if (session?.user) {
+             console.log('Initial session has user, fetching profile...')
+             try {
+               await fetchUserProfile(session.user.email)
+               console.log('Initial profile fetch completed')
+             } catch (error) {
+               console.error('Error in initial profile fetch:', error)
+               // Even if profile fetch fails, don't fail the entire session
+               setUserProfile(null)
+             }
+           } else {
+             console.log('No user in initial session')
+             setUserProfile(null)
+           }
+         }
         
         console.log('Final user state:', { user: session?.user, userProfile: userProfile })
         console.log('Setting loading to false')
@@ -179,24 +160,26 @@ export const AuthProvider = ({ children }) => {
           return
         }
         
-        // Only proceed if we have a valid, non-mock user
-        if (session?.user && !session.user.email.includes('@localhost')) {
-          console.log('Setting user and fetching profile...')
-          setUser(session.user)
-          try {
-            await fetchUserProfile(session.user.email)
-            console.log('Profile fetch completed, setting loading to false')
-          } catch (error) {
-            console.error('Error in profile fetch, but continuing:', error)
-          }
-        } else {
-          console.log('No valid user, clearing state')
-          setUser(null)
-          setUserProfile(null)
-        }
-        
-        console.log('Auth state change completed, setting loading to false')
-        setLoading(false)
+                 // Only proceed if we have a valid, non-mock user
+         if (session?.user && !session.user.email.includes('@localhost')) {
+           console.log('Setting user and fetching profile...')
+           setUser(session.user)
+           
+           // Fetch profile immediately
+           try {
+             await fetchUserProfile(session.user.email)
+             console.log('Profile fetch completed')
+           } catch (error) {
+             console.error('Error in profile fetch, but continuing:', error)
+           }
+         } else {
+           console.log('No valid user, clearing state')
+           setUser(null)
+           setUserProfile(null)
+         }
+         
+         console.log('Auth state change completed, setting loading to false')
+         setLoading(false)
       }
     )
 
@@ -210,27 +193,34 @@ export const AuthProvider = ({ children }) => {
     }
   }, [fetchUserProfile])
 
-  // Force redirect to Auth if no valid user after loading
+  // Force redirect to Auth if no valid user after loading (with safety check)
   useEffect(() => {
-    if (!loading && !user && !forceRedirect) {
+    if (!loading && !user && !forceRedirect && !emergencyMode) {
       console.log('No valid user found after loading, forcing redirect to Auth')
       setForceRedirect(true)
       // Clear any remaining tokens
       localStorage.removeItem('supabase.auth.token')
       sessionStorage.clear()
-      // Force redirect
-      window.location.href = '/Auth'
+      // Only redirect if we're not already on an auth page
+      if (window.location.pathname !== '/Auth' && window.location.pathname !== '/AdminAuth' && window.location.pathname !== '/SuperAdminAuth') {
+        window.location.href = '/Auth'
+      }
     }
-  }, [loading, user, forceRedirect])
+  }, [loading, user, emergencyMode]) // Added emergencyMode to prevent redirects
 
-  // Additional safety check: if we're on any page other than Auth and no user, redirect
+  // Remove the duplicate redirect logic to prevent infinite loops
+
+  // Safety mechanism: reset forceRedirect after a delay to prevent getting stuck
   useEffect(() => {
-    if (!loading && !user && window.location.pathname !== '/Auth' && window.location.pathname !== '/AdminAuth' && window.location.pathname !== '/SuperAdminAuth') {
-      console.log('User not authenticated and not on auth page, forcing redirect to Auth')
-      setForceRedirect(true)
-      window.location.href = '/Auth'
+    if (forceRedirect) {
+      const resetTimeout = setTimeout(() => {
+        console.log('Resetting forceRedirect to prevent getting stuck')
+        setForceRedirect(false)
+      }, 5000) // Reset after 5 seconds
+      
+      return () => clearTimeout(resetTimeout)
     }
-  }, [loading, user])
+  }, [forceRedirect])
 
   // Safety timeout: if loading takes too long, force resolve it
   useEffect(() => {
@@ -283,6 +273,10 @@ export const AuthProvider = ({ children }) => {
           }
           
           console.log('User profile verified:', profile)
+          
+          // IMPORTANT: Set the user profile immediately after successful login
+          setUserProfile(profile)
+          
           return { data, error: null }
         } catch (profileError) {
           console.error('Profile verification failed:', profileError)
@@ -424,12 +418,24 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
+  // Debug logging for profile state
+  useEffect(() => {
+    console.log('🔍 Profile State Changed:', {
+      user: user ? { id: user.id, email: user.email } : null,
+      userProfile: userProfile ? { id: userProfile.id, email: userProfile.email, role: userProfile.role } : null,
+      loading,
+      hasProfile: !!userProfile
+    })
+  }, [user, userProfile, loading])
+
   const value = {
     user,
     userProfile,
     loading,
     supabaseError,
     forceRedirect,
+    emergencyMode,
+    setEmergencyMode, // Allow components to trigger emergency mode
     signIn,
     signUp,
     signOut,
