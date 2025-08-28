@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { X, Edit, RefreshCw } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useToast } from '@/components/ui/use-toast';
 
 const generateWithdrawalCode = () => {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -24,6 +25,7 @@ const generateWithdrawalCode = () => {
 };
 
 export default function EditUserModal({ isOpen, onClose, user, onUpdate }) {
+  const { toast } = useToast();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -32,6 +34,7 @@ export default function EditUserModal({ isOpen, onClose, user, onUpdate }) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -41,6 +44,9 @@ export default function EditUserModal({ isOpen, onClose, user, onUpdate }) {
       setEmail(user.email || '');
       setRole(user.role || 'user');
       setWithdrawalCode(user.withdrawal_code || generateWithdrawalCode());
+      
+      // Set current password placeholder (we can't fetch actual password for security)
+      setCurrentPassword('••••••••');
       setPassword('');
       setConfirmPassword('');
     }
@@ -48,12 +54,20 @@ export default function EditUserModal({ isOpen, onClose, user, onUpdate }) {
 
   const handleSubmit = async () => {
     if (!firstName || !email) {
-      alert('Please fill in first name and email.');
+      toast({
+        title: "Validation Error",
+        description: "Please fill in first name and email.",
+        variant: "destructive",
+      });
       return;
     }
 
     if (password && password !== confirmPassword) {
-      alert('Passwords do not match.');
+      toast({
+        title: "Password Mismatch",
+        description: "New password and confirm password do not match.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -98,13 +112,21 @@ export default function EditUserModal({ isOpen, onClose, user, onUpdate }) {
         }
       }
       
-      alert('User updated successfully!');
-      onUpdate && onUpdate();
-      onClose();
-    } catch (error) {
-      console.error('Error updating user:', error);
-      alert('Failed to update user. Please try again.');
-    } finally {
+             toast({
+         title: "Success!",
+         description: "User updated successfully!",
+         variant: "success",
+       });
+       onUpdate && onUpdate();
+       onClose();
+     } catch (error) {
+       console.error('Error updating user:', error);
+       toast({
+         title: "Update Failed",
+         description: "Failed to update user. Please try again.",
+         variant: "destructive",
+       });
+     } finally {
       setIsUpdating(false);
     }
   };
@@ -167,11 +189,11 @@ export default function EditUserModal({ isOpen, onClose, user, onUpdate }) {
               <SelectTrigger className="mt-2">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="user">User</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="superadmin">Super Admin</SelectItem>
-              </SelectContent>
+                             <SelectContent>
+                 <SelectItem value="user">User</SelectItem>
+                 <SelectItem value="admin">Admin</SelectItem>
+                 <SelectItem value="super_admin">Super Admin</SelectItem>
+               </SelectContent>
             </Select>
           </div>
 
@@ -196,28 +218,44 @@ export default function EditUserModal({ isOpen, onClose, user, onUpdate }) {
             </div>
           </div>
 
-          <div>
-            <Label htmlFor="new-password" className="font-semibold">New Password</Label>
-            <Input
-              id="new-password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-2"
-              placeholder="Leave blank to keep unchanged"
-            />
-          </div>
+                     <div>
+             <Label htmlFor="current-password" className="font-semibold">Current Password</Label>
+             <Input
+               id="current-password"
+               type="text"
+               value={currentPassword}
+               disabled
+               className="mt-2 bg-gray-100"
+               placeholder="Current password (hidden for security)"
+             />
+             <p className="text-xs text-gray-500 mt-1">
+               Passwords are encrypted and cannot be retrieved. Leave blank below to keep unchanged.
+             </p>
+           </div>
 
-          <div>
-            <Label htmlFor="confirm-password" className="font-semibold">Confirm Password</Label>
-            <Input
-              id="confirm-password"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="mt-2"
-            />
-          </div>
+           <div>
+             <Label htmlFor="new-password" className="font-semibold">New Password</Label>
+             <Input
+               id="new-password"
+               type="password"
+               value={password}
+               onChange={(e) => setPassword(e.target.value)}
+               className="mt-2"
+               placeholder="Enter new password or leave blank"
+             />
+           </div>
+
+           <div>
+             <Label htmlFor="confirm-password" className="font-semibold">Confirm New Password</Label>
+             <Input
+               id="confirm-password"
+               type="password"
+               value={confirmPassword}
+               onChange={(e) => setConfirmPassword(e.target.value)}
+               className="mt-2"
+               placeholder="Confirm new password"
+             />
+           </div>
 
           <div className="flex gap-3 pt-4">
             <Button
