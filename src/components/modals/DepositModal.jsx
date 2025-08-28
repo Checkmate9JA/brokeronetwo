@@ -14,8 +14,8 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { UploadFile } from "@/api/integrations";
-import { Transaction } from "@/api/entities";
-import { PaymentSetting } from "@/api/entities";
+
+import { supabase } from '@/lib/supabase';
 import { DollarSign, Copy, Upload, Check, Info, PlusCircle, X } from 'lucide-react';
 import {
   Tooltip,
@@ -94,10 +94,36 @@ export default function DepositModal({ isOpen, onClose, onSuccess, user }) {
   const loadSettings = async () => {
     setLoadingSettings(true);
     try {
-        const allSettings = await PaymentSetting.list();
-        const cryptoSetting = allSettings.find(s => s.setting_type === 'crypto');
-        const bankSetting = allSettings.find(s => s.setting_type === 'bank');
-        const paypalSetting = allSettings.find(s => s.setting_type === 'paypal');
+        console.log('🔍 Loading payment settings for deposit modal...');
+        
+        // Fetch payment settings from Supabase
+        const { data: allSettings, error } = await supabase
+          .from('payment_settings')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Error fetching payment settings:', error);
+          showFeedback('error', 'Error', 'Failed to load payment methods.');
+          return;
+        }
+
+        console.log('✅ Payment settings loaded for deposit:', allSettings);
+
+        // Find settings by type
+        const cryptoSetting = allSettings?.find(s => s.setting_type === 'crypto');
+        const bankSetting = allSettings?.find(s => s.setting_type === 'bank');
+        const paypalSetting = allSettings?.find(s => s.setting_type === 'paypal');
+
+        // Parse wallets JSON for crypto settings
+        if (cryptoSetting && cryptoSetting.wallets) {
+          try {
+            cryptoSetting.wallets = JSON.parse(cryptoSetting.wallets);
+          } catch (e) {
+            console.warn('Failed to parse crypto wallets JSON:', e);
+            cryptoSetting.wallets = [];
+          }
+        }
 
         const newSettings = {
             crypto: cryptoSetting?.is_enabled ? cryptoSetting : null,
@@ -172,7 +198,14 @@ export default function DepositModal({ isOpen, onClose, onSuccess, user }) {
             }
         }
         
-        await Transaction.create(transactionData);
+        // Create transaction in Supabase
+        const { error: transactionError } = await supabase
+          .from('transactions')
+          .insert(transactionData);
+        
+        if (transactionError) {
+          throw new Error(`Transaction creation failed: ${transactionError.message}`);
+        }
         
         showFeedback('success', 'Success!', 'Deposit submitted successfully! Your deposit will be reviewed and processed.');
         onSuccess();

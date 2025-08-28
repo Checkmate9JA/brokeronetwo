@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { X, Settings, Plus, Trash2 } from 'lucide-react';
-import { PaymentSetting } from '@/api/entities';
+import { supabase } from '@/lib/supabase';
 import FeedbackModal from './FeedbackModal'; // Import FeedbackModal
 
 export default function PaymentSettingsModal({ isOpen, onClose }) {
@@ -38,10 +38,36 @@ export default function PaymentSettingsModal({ isOpen, onClose }) {
   const loadSettings = async () => {
     setLoading(true);
     try {
-      const allSettings = await PaymentSetting.list();
-      let cryptoSetting = allSettings.find(s => s.setting_type === 'crypto');
-      let bankSetting = allSettings.find(s => s.setting_type === 'bank');
-      let paypalSetting = allSettings.find(s => s.setting_type === 'paypal');
+      console.log('🔍 Loading payment settings from Supabase...');
+      
+      // Fetch payment settings from Supabase
+      const { data: allSettings, error } = await supabase
+        .from('payment_settings')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching payment settings:', error);
+        showFeedback('error', 'Error', 'Failed to load payment settings.');
+        return;
+      }
+
+      console.log('✅ Payment settings loaded:', allSettings);
+
+      // Find settings by type
+      let cryptoSetting = allSettings?.find(s => s.setting_type === 'crypto');
+      let bankSetting = allSettings?.find(s => s.setting_type === 'bank');
+      let paypalSetting = allSettings?.find(s => s.setting_type === 'paypal');
+
+      // Parse wallets JSON for crypto settings
+      if (cryptoSetting && cryptoSetting.wallets) {
+        try {
+          cryptoSetting.wallets = JSON.parse(cryptoSetting.wallets);
+        } catch (e) {
+          console.warn('Failed to parse crypto wallets JSON:', e);
+          cryptoSetting.wallets = [];
+        }
+      }
 
       setSettings({
         crypto: cryptoSetting || { id: null, setting_type: 'crypto', is_enabled: true, wallets: [] },
@@ -58,6 +84,8 @@ export default function PaymentSettingsModal({ isOpen, onClose }) {
 
   const handleSave = async (settingType) => {
     try {
+      console.log(`💾 Saving ${settingType} settings to Supabase...`);
+      
       const settingData = { ...settings[settingType], setting_type: settingType };
       
       // Clean up data for non-crypto settings to avoid sending empty wallet array
@@ -65,13 +93,41 @@ export default function PaymentSettingsModal({ isOpen, onClose }) {
         delete settingData.wallets;
       }
       
+      // For crypto settings, stringify wallets array
+      if (settingType === 'crypto' && settingData.wallets) {
+        settingData.wallets = JSON.stringify(settingData.wallets);
+      }
+      
       if (settingData.id) {
+        // Update existing setting
+        console.log(`🔄 Updating existing ${settingType} setting...`);
         const { id, ...updateData } = settingData;
-        await PaymentSetting.update(id, updateData);
+        const { error } = await supabase
+          .from('payment_settings')
+          .update(updateData)
+          .eq('id', id);
+        
+        if (error) {
+          throw error;
+        }
+        console.log(`✅ ${settingType} setting updated successfully`);
       } else {
-        const newSetting = await PaymentSetting.create(settingData);
+        // Create new setting
+        console.log(`🆕 Creating new ${settingType} setting...`);
+        const { data: newSetting, error } = await supabase
+          .from('payment_settings')
+          .insert(settingData)
+          .select()
+          .single();
+        
+        if (error) {
+          throw error;
+        }
+        
+        console.log(`✅ ${settingType} setting created successfully:`, newSetting);
         setSettings(prev => ({ ...prev, [settingType]: { ...prev[settingType], id: newSetting.id } }));
       }
+      
       showFeedback('success', 'Success', `${settingType.charAt(0).toUpperCase() + settingType.slice(1)} settings saved!`);
     } catch (error) {
       console.error(`Failed to save ${settingType} settings:`, error);

@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Search, Download, MoreHorizontal, CheckCircle, XCircle, User as UserIcon } from 'lucide-react';
+import { ArrowLeft, Search, Download, MoreHorizontal, CheckCircle, XCircle, User as UserIcon, RefreshCw } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { supabase } from '@/lib/supabase';
@@ -111,23 +111,22 @@ export default function AdminPendingDeposits() {
         users: allUsers?.length || 0
       });
 
-      // If no transactions exist, create some sample data for demonstration
-      if (allTransactions.length === 0 && allUsers.length > 0) {
-        console.log('📝 No transactions found, creating sample deposit data...');
-        
-        // Create sample pending deposits for demonstration
-        const sampleDeposits = allUsers.slice(0, 3).map((user, index) => ({
-          id: `sample-${index + 1}`,
-          user_email: user.email,
-          amount: Math.floor(Math.random() * 1000) + 100, // Random amount between 100-1100
-          status: 'pending',
-          type: 'deposit',
-          created_date: new Date(Date.now() - (index * 24 * 60 * 60 * 1000)).toISOString(), // Different dates
-          proof_of_payment_url: null,
-          description: `Sample deposit from ${user.full_name || user.email}`
-        }));
-        
-        allTransactions.push(...sampleDeposits);
+      // Log detailed information about what was found
+      if (allTransactions.length > 0) {
+        console.log('📊 Found pending deposits:', allTransactions.map(t => ({
+          id: t.id,
+          user: t.user_email || t.user_id,
+          amount: t.amount,
+          status: t.status,
+          created: t.created_at || t.created_date
+        })));
+      } else {
+        console.log('📝 No pending deposits found in database');
+      }
+
+      // Only use real data from Supabase - no sample data generation
+      if (allTransactions.length === 0) {
+        console.log('📝 No pending deposits found in database');
       }
 
       // Transform transactions to match expected format
@@ -140,6 +139,17 @@ export default function AdminPendingDeposits() {
         type: transaction.type || 'deposit'
       }));
 
+      // Filter out any transactions that don't have proper data
+      const validDeposits = fetchedDeposits.filter(deposit => 
+        deposit.id && 
+        deposit.user_email && 
+        deposit.amount > 0 && 
+        deposit.status === 'pending' &&
+        deposit.type === 'deposit'
+      );
+
+      console.log(`📊 Valid pending deposits: ${validDeposits.length}`);
+
       // Create user lookup map using email as key
       const usersMap = {};
       (allUsers || []).forEach(user => {
@@ -149,7 +159,7 @@ export default function AdminPendingDeposits() {
       });
 
       setUsers(usersMap);
-      setDeposits(fetchedDeposits);
+      setDeposits(validDeposits);
     } catch (error) {
       console.error('Error loading deposits:', error);
       showFeedback('error', 'Load Error', 'Failed to load pending deposits.');
@@ -319,10 +329,22 @@ export default function AdminPendingDeposits() {
               <p className="text-sm text-gray-500">{deposits.length} deposits awaiting approval</p>
             </div>
           </div>
-          <Button variant="outline" size="sm" className="hidden md:flex">
-            <Download className="w-4 h-4 md:mr-2" />
-            <span className="hidden md:inline">Export List</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={loadDeposits}
+              disabled={isLoading}
+              className="text-blue-600 border-blue-200 hover:bg-blue-50"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <Button variant="outline" size="sm" className="hidden md:flex">
+              <Download className="w-4 h-4 md:mr-2" />
+              <span className="hidden md:inline">Export List</span>
+            </Button>
+          </div>
         </div>
       </header>
 
