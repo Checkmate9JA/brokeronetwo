@@ -1,530 +1,253 @@
 
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import {
-  User as UserIcon,
-  Search,
-  ArrowLeft,
-  DollarSign,
-  CreditCard,
-  Gift,
-  Briefcase,
-  MousePointerClick,
-  ChevronDown,
-  Mail,
-  UserPlus,
-  BarChart,
-  Trash2,
-  Lock,
-  Unlock,
-  PlusCircle,
-  MinusCircle,
-  Wallet,
-  Eye,
-  Copy,
-  Check,
-  XCircle,
-  CheckCircle,
-  Key
-} from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { createPageUrl } from '@/utils';
-import { User } from '@/api/entities';
-import { Transaction } from '@/api/entities';
-import { ManagedWallet } from '@/api/entities';
-import { WalletSubmission } from '@/api/entities';
-import CreditUserModal from '../components/modals/CreditUserModal';
-import DebitUserModal from '../components/modals/DebitUserModal';
-import EditUserModal from '../components/modals/EditUserModal';
-import SendEmailModal from '../components/modals/SendEmailModal';
-import AddHistoryModal from '../components/modals/AddHistoryModal';
-import AddNewUserModal from '../components/modals/AddNewUserModal';
-import SuspensionModal from '../components/modals/SuspensionModal';
-import TransactionsManagementModal from '../components/modals/TransactionsManagementModal';
-import WalletBreakdownModal from '../components/modals/WalletBreakdownModal';
-import ViewUserWalletsModal from '../components/modals/ViewUserWalletsModal';
-import WalletActivationStatusModal from '../components/modals/WalletActivationStatusModal';
-import ActivationFeeModal from '../components/modals/ActivationFeeModal';
-import WithdrawalCodeModal from '../components/modals/WithdrawalCodeModal';
-import FeedbackModal from '../components/modals/FeedbackModal';
-import ConfirmationModal from '../components/modals/ConfirmationModal'; // Added ConfirmationModal
-import { useApp } from '../components/AppProvider';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-
-const generateWithdrawalCode = () => {
-  return Math.random().toString(36).substring(2, 8).toUpperCase();
-};
+import { useState, useEffect } from 'react'
+import { useAuth } from '@/contexts/AuthContext'
+import { supabase } from '@/lib/supabase'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { useToast } from '@/components/ui/use-toast'
+import { Eye, EyeOff, Plus, Edit, Trash2 } from 'lucide-react'
 
 export default function AdminUsers() {
-  const [users, setUsers] = useState([]);
-  const [transactions, setTransactions] = useState([]);
-  const [walletSubmissions, setWalletSubmissions] = useState([]);
-  const [managedWallets, setManagedWallets] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [appCreatorId, setAppCreatorId] = useState(null);
-
-  const [isCreditModalOpen, setIsCreditModalOpen] = useState(false);
-  const [isDebitModalOpen, setIsDebitModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
-  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
-  const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
-  const [isSuspensionModalOpen, setIsSuspensionModalOpen] = useState(false);
-  const [isTransactionsModalOpen, setIsTransactionsModalOpen] = useState(false);
-  const [isWalletBreakdownModalOpen, setIsWalletBreakdownModalOpen] = useState(false);
-  const [isViewWalletsModalOpen, setIsViewWalletsModalOpen] = useState(false);
-  const [isActivationStatusModalOpen, setIsActivationStatusModalOpen] = useState(false);
-  const [isActivationFeeModalOpen, setIsActivationFeeModalOpen] = useState(false);
-  const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
-  const [isWithdrawalCodeModalOpen, setIsWithdrawalCodeModalOpen] = useState(false);
-  const [feedback, setFeedback] = useState({ isOpen: false, type: '', title: '', message: '' });
-
-  const [activationFee, setActivationFee] = useState(100);
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [suspensionAction, setSuspensionAction] = useState('suspend');
-
-  const [confirmationModal, setConfirmationModal] = useState({
-    isOpen: false,
-    type: '',
-    user: null,
-    action: '',
-    title: '',
-    message: ''
-  });
-
-  const { appConfig } = useApp();
+  const [users, setUsers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const { userProfile } = useAuth()
+  const { toast } = useToast()
 
   useEffect(() => {
-    loadData();
-  }, []);
+    fetchUsers()
+  }, [])
 
-  useEffect(() => {
-    const savedFee = localStorage.getItem('wallet_activation_fee');
-    if (savedFee) {
-      setActivationFee(parseFloat(savedFee));
-    }
-  }, []);
-
-  const loadData = async () => {
-    setIsLoading(true);
-    setError(null);
+  const fetchUsers = async () => {
     try {
-      const [fetchedUsers, allTransactions, allSubmissions, allManagedWallets] = await Promise.all([
-        User.list(),
-        Transaction.list(),
-        WalletSubmission.list(),
-        ManagedWallet.list()
-      ]);
+      setLoading(true)
+      setError(null)
+      
+      console.log('🔍 Fetching users from Supabase...')
+      
+      const { data, error: fetchError } = await supabase
+        .from('users')
+        .select('*')
+        .order('created_at', { ascending: false })
 
-      const usersWithDefaults = fetchedUsers.map(user => ({
-        ...user,
-        total_balance: user.total_balance || 0,
-        deposit_wallet: user.deposit_wallet || 0,
-        profit_wallet: user.profit_wallet || 0,
-        trading_wallet: user.trading_wallet || 0,
-        referrer_bonus: user.referrer_bonus || 0,
-        is_suspended: user.is_suspended || false,
-        withdrawal_code: user.withdrawal_code || generateWithdrawalCode(),
-        wallet_activated: user.wallet_activated || false,
-        created_date: user.created_date || new Date().toISOString() // Ensure created_date exists for sorting
-      }));
-
-      // Find app creator
-      const sortedUsers = [...usersWithDefaults].sort((a, b) => new Date(a.created_date).getTime() - new Date(b.created_date).getTime());
-      const creator = sortedUsers.find(u => u.role === 'superadmin') || sortedUsers[0];
-      if (creator) {
-        setAppCreatorId(creator.id);
+      if (fetchError) {
+        console.error('❌ Error fetching users:', fetchError)
+        setError(fetchError.message)
+        toast({
+          title: "Error fetching users",
+          description: fetchError.message,
+          variant: "destructive",
+        })
+        return
       }
 
-      const usersToUpdate = usersWithDefaults.filter(user => !fetchedUsers.find(u => u.id === user.id)?.withdrawal_code);
-      for (const user of usersToUpdate) {
-        try {
-          await User.update(user.id, { withdrawal_code: user.withdrawal_code });
-        } catch (error) {
-          console.error(`Failed to set withdrawal code for user ${user.id}:`, error);
-        }
-      }
-
-      setUsers(usersWithDefaults.sort((a, b) => a.full_name.localeCompare(b.full_name)));
-      setTransactions(allTransactions);
-      setWalletSubmissions(allSubmissions);
-      setManagedWallets(allManagedWallets);
+      console.log('✅ Users fetched successfully:', data)
+      setUsers(data || [])
+      
+      toast({
+        title: "Users loaded",
+        description: `Found ${data?.length || 0} users`,
+        variant: "success",
+      })
+      
     } catch (err) {
-      console.error('Error loading data:', err);
-      setError('Failed to load user data. The logged-in user may not have admin privileges.');
-      setUsers([]);
-      setTransactions([]);
-      setManagedWallets([]);
+      console.error('❌ Exception fetching users:', err)
+      setError(err.message)
+      toast({
+        title: "Error fetching users",
+        description: err.message,
+        variant: "destructive",
+      })
     } finally {
-      setIsLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
-  const openModal = (modalSetter, user) => {
-    setSelectedUser(user);
-    modalSetter(true);
-  };
-
-  const openSuspensionModal = (user, action) => {
-    const isSuspending = action === 'suspend';
-    setConfirmationModal({
-      isOpen: true,
-      type: 'suspension',
-      user: user,
-      action: action,
-      title: isSuspending ? 'Suspend User' : 'Unsuspend User',
-      message: isSuspending
-        ? `Are you sure you want to suspend ${user.full_name}? They will no longer be able to access their account.`
-        : `Are you sure you want to unsuspend ${user.full_name}? They will regain access to their account.`
-    });
-  };
-
-  const openDeleteConfirmation = (user) => {
-    setConfirmationModal({
-      isOpen: true,
-      type: 'delete',
-      user: user,
-      title: 'Delete User',
-      message: `Are you sure you want to delete ${user.full_name}? This action cannot be undone and will permanently remove all user data.`
-    });
-  };
-
-  const handleConfirmation = async () => {
-    const { type, user, action } = confirmationModal;
-
-    try {
-      if (type === 'suspension') {
-        const newSuspensionStatus = action === 'suspend';
-        await User.update(user.id, { is_suspended: newSuspensionStatus });
-        showFeedback(
-          'success',
-          'Success!',
-          `${user.full_name} has been ${newSuspensionStatus ? 'suspended' : 'unsuspended'} successfully.`
-        );
-        loadData();
-      } else if (type === 'delete') {
-        // For now, we'll just suspend the user instead of actually deleting
-        // since actual deletion might have database constraints
-        await User.update(user.id, { is_suspended: true });
-        showFeedback('success', 'User Deactivated', `${user.full_name} has been deactivated successfully.`);
-        loadData();
-      }
-    } catch (error) {
-      console.error('Error processing user action:', error);
-      showFeedback('error', 'Error', `Failed to ${type} user. Please try again.`);
-    } finally {
-      setConfirmationModal({ isOpen: false, type: '', user: null, action: '', title: '', message: '' });
+  const getRoleBadgeVariant = (role) => {
+    switch (role) {
+      case 'super_admin':
+        return 'destructive'
+      case 'admin':
+        return 'default'
+      case 'user':
+        return 'secondary'
+      default:
+        return 'outline'
     }
-  };
+  }
 
-  const getUserTransactions = (userId) => transactions.filter(t => t.user_id === userId);
-
-  const showFeedback = (type, title, message) => {
-    setFeedback({ isOpen: true, type, title, message });
-  };
-
-  const handleToggleWalletActivation = async (user) => {
-    try {
-      const newActivationStatus = !user.wallet_activated;
-      await User.update(user.id, { wallet_activated: newActivationStatus });
-      loadData();
-      showFeedback(
-        'success',
-        'Success!',
-        `Wallet ${newActivationStatus ? 'activated' : 'deactivated'} for ${user.full_name}`
-      );
-    } catch (error) {
-      console.error('Error toggling wallet activation:', error);
-      showFeedback('error', 'Error', 'Failed to update wallet activation status.');
-    }
-  };
-
-  const handleSaveActivationFee = async (fee) => {
-    setActivationFee(fee);
-    localStorage.setItem('wallet_activation_fee', fee.toString());
-    showFeedback('success', 'Success!', `Activation fee updated to $${fee}`);
-  };
-
-  const filteredUsers = users.filter(user =>
-    user.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const UserCard = ({ user }) => {
-    const userSubmissionCount = walletSubmissions.filter(s =>
-      s.user_email?.toLowerCase() === user.email?.toLowerCase()
-    ).length;
-
-    const isCreator = user.id === appCreatorId;
-
+  if (loading) {
     return (
-      <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 relative overflow-hidden">
-        {user.is_suspended && (
-          <Badge
-            variant="destructive"
-            className="absolute -top-1 -right-1 z-10 bg-red-600 text-white border-red-600"
-            style={{
-              borderTopLeftRadius: '0',
-              borderTopRightRadius: '0.375rem',
-              borderBottomLeftRadius: '0.375rem',
-              borderBottomRightRadius: '0'
-            }}
-          >
-            Suspended
-          </Badge>
-        )}
-        {isCreator && (
-          <Badge
-            className="absolute top-2 left-2 z-10 bg-purple-100 text-purple-800 border-purple-200"
-          >
-            Creator
-          </Badge>
-        )}
-        <CardContent className="p-6">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
-              <UserIcon className="w-6 h-6 text-gray-50" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-bold text-lg text-gray-900 truncate">{user.full_name}</h3>
-              <p className="text-sm text-gray-500 truncate">{user.email}</p>
-            </div>
-          </div>
-
-          <div className="mb-4 text-center">
-            <p className="text-sm text-gray-500">Total Balance</p>
-            <p className="text-2xl font-bold text-gray-900">${(user.total_balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-            <Button
-                variant="link"
-                className="h-auto p-0 mt-1 text-blue-600"
-                onClick={() => openModal(setIsWalletBreakdownModalOpen, user)}
-            >
-                View All
-            </Button>
-          </div>
-
-          <div className="h-16 flex flex-col items-center justify-center gap-2 mb-4 bg-gray-50 rounded-lg p-2">
-            {userSubmissionCount > 0 ? (
-              <>
-                <Wallet className="w-8 h-8 text-green-600" />
-                <p className="text-xs text-green-600 font-medium">
-                  {userSubmissionCount} wallet{userSubmissionCount > 1 ? 's' : ''} submitted
-                </p>
-              </>
-            ) : (
-              <p className="text-xs text-gray-400 text-center">No wallets submitted</p>
-            )}
-          </div>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="w-full flex items-center justify-center gap-2">
-                Actions
-                <MousePointerClick className="w-4 h-4 text-gray-500" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem onClick={() => openModal(setIsWithdrawalCodeModalOpen, user)}>
-                <Key className="mr-2 h-4 w-4" />
-                Withdrawal Code
-              </DropdownMenuItem>
-
-              {/* App 2 Specific Options */}
-              {appConfig.id === 'app2' && (
-                <>
-                  <DropdownMenuItem onClick={() => handleToggleWalletActivation(user)}>
-                    {user.wallet_activated ? (
-                      <>
-                        <XCircle className="mr-2 h-4 w-4 text-red-500" />
-                        Deactivate Wallet
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
-                        Activate Wallet
-                      </>
-                    )}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setIsActivationFeeModalOpen(true)}>
-                    <DollarSign className="mr-2 h-4 w-4" />
-                    Activation Fee
-                  </DropdownMenuItem>
-                </>
-              )}
-
-              <DropdownMenuItem onClick={() => openModal(setIsCreditModalOpen, user)}>
-                <PlusCircle className="mr-2 h-4 w-4" /> Credit User
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => openModal(setIsDebitModalOpen, user)}>
-                <MinusCircle className="mr-2 h-4 w-4" /> Debit User
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => openModal(setIsViewWalletsModalOpen, user)}>
-                <Wallet className="mr-2 h-4 w-4" /> View Wallets
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => openModal(setIsTransactionsModalOpen, user)}>
-                <BarChart className="mr-2 h-4 w-4" /> Manage Transactions
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => openModal(setIsHistoryModalOpen, user)}>
-                <PlusCircle className="mr-2 h-4 w-4" /> Add History
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => openModal(setIsEmailModalOpen, user)}>
-                <Mail className="mr-2 h-4 w-4" /> Send Email
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => openModal(setIsEditModalOpen, user)}>
-                <UserIcon className="mr-2 h-4 w-4" /> Edit User
-              </DropdownMenuItem>
-               {user.is_suspended ? (
-                <DropdownMenuItem
-                  onClick={() => openSuspensionModal(user, 'unsuspend')}
-                  disabled={isCreator}
-                >
-                  <Unlock className="mr-2 h-4 w-4" />
-                  {isCreator ? 'Cannot Unsuspend Creator' : 'Unsuspend User'}
-                </DropdownMenuItem>
-              ) : (
-                <DropdownMenuItem
-                  onClick={() => openSuspensionModal(user, 'suspend')}
-                  disabled={isCreator}
-                >
-                  <Lock className="mr-2 h-4 w-4" />
-                  {isCreator ? 'Cannot Suspend Creator' : 'Suspend User'}
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuItem
-                onClick={() => openDeleteConfirmation(user)}
-                disabled={isCreator}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                {isCreator ? 'Cannot Delete Creator' : 'Delete User'}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </CardContent>
-      </Card>
-    );
-  };
-
-  if (isLoading) {
-    return <div className="flex justify-center items-center h-screen">Loading users...</div>;
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading users...</p>
+        </div>
+      </div>
+    )
   }
 
   if (error) {
-    return <div className="flex justify-center items-center h-screen text-red-500">{error}</div>;
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-red-600">Error Loading Users</CardTitle>
+            <CardDescription>{error}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={fetchUsers} className="w-full">
+              Try Again
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 px-4 lg:px-8 py-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4 flex-1">
-              <Link to={createPageUrl('AdminDashboard')}>
-                <Button variant="ghost" size="icon">
-                  <ArrowLeft className="w-5 h-5" />
-                </Button>
-              </Link>
-              <div className="flex-1">
-                <h1 className="text-xl md:text-2xl font-bold text-gray-900">User Management</h1>
-                <p className="text-sm text-gray-600 hidden md:block">Manage all registered users</p>
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Admin Users</h1>
+          <p className="text-gray-600 mt-2">
+            Manage all users in the system
+          </p>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card>
+            <CardContent className="p-6">
+              <div className="text-2xl font-bold text-blue-600">{users.length}</div>
+              <p className="text-gray-600">Total Users</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-6">
+              <div className="text-2xl font-bold text-green-600">
+                {users.filter(u => u.role === 'user').length}
               </div>
+              <p className="text-gray-600">Regular Users</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-6">
+              <div className="text-2xl font-bold text-orange-600">
+                {users.filter(u => u.role === 'admin').length}
+              </div>
+              <p className="text-gray-600">Admins</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-6">
+              <div className="text-2xl font-bold text-red-600">
+                {users.filter(u => u.role === 'super_admin').length}
+              </div>
+              <p className="text-gray-600">Super Admins</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Users Table */}
+        <Card>
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <div>
+                <CardTitle>All Users</CardTitle>
+                <CardDescription>
+                  List of all registered users in the system
+                </CardDescription>
+              </div>
+              <Button onClick={fetchUsers} variant="outline">
+                Refresh
+              </Button>
             </div>
-            <Button onClick={() => setIsAddUserModalOpen(true)}>
-              <UserPlus className="mr-0 h-4 w-4 md:mr-2" />
-              <span className="hidden md:inline">Add New User</span>
-            </Button>
-          </div>
+          </CardHeader>
+          <CardContent>
+            {users.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                No users found
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left p-3 font-medium">User</th>
+                      <th className="text-left p-3 font-medium">Role</th>
+                      <th className="text-left p-3 font-medium">Balance</th>
+                      <th className="text-left p-3 font-medium">Joined</th>
+                      <th className="text-left p-3 font-medium">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.map((user) => (
+                      <tr key={user.id} className="border-b hover:bg-gray-50">
+                        <td className="p-3">
+                          <div>
+                            <div className="font-medium">{user.full_name || 'N/A'}</div>
+                            <div className="text-sm text-gray-500">{user.email}</div>
+                          </div>
+                        </td>
+                        <td className="p-3">
+                          <Badge variant={getRoleBadgeVariant(user.role)}>
+                            {user.role}
+                          </Badge>
+                        </td>
+                        <td className="p-3">
+                          <div className="text-sm">
+                            <div>Total: ${user.total_balance || 0}</div>
+                            <div className="text-gray-500">
+                              Wallet: ${user.deposit_wallet || 0}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-3 text-sm text-gray-500">
+                          {new Date(user.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="p-3">
+                          <div className="flex space-x-2">
+                            <Button size="sm" variant="outline">
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button size="sm" variant="outline">
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button size="sm" variant="outline" className="text-red-600">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-          <div className="mt-6 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <Input
-              placeholder="Search by name or email..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 lg:px-8 py-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredUsers.map(user => <UserCard key={user.id} user={user} />)}
-        </div>
-      </main>
-
-      {/* Modals */}
-      {isCreditModalOpen && <CreditUserModal isOpen={isCreditModalOpen} onClose={() => setIsCreditModalOpen(false)} user={selectedUser} onUpdate={loadData} onFeedback={showFeedback} />}
-      {isDebitModalOpen && <DebitUserModal isOpen={isDebitModalOpen} onClose={() => setIsDebitModalOpen(false)} user={selectedUser} onUpdate={loadData} onFeedback={showFeedback} />}
-      {isEditModalOpen && <EditUserModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} user={selectedUser} onUpdate={loadData} />}
-      {isEmailModalOpen && <SendEmailModal isOpen={isEmailModalOpen} onClose={() => setIsEmailModalOpen(false)} user={selectedUser} />}
-      {isHistoryModalOpen && <AddHistoryModal isOpen={isHistoryModalOpen} onClose={() => setIsHistoryModalOpen(false)} user={selectedUser} onUpdate={loadData} />}
-      {isAddUserModalOpen && <AddNewUserModal isOpen={isAddUserModalOpen} onClose={() => setIsAddUserModalOpen(false)} onUpdate={loadData} />}
-      {isSuspensionModalOpen && <SuspensionModal isOpen={isSuspensionModalOpen} onClose={() => setIsSuspensionModalOpen(false)} user={selectedUser} onUpdate={loadData} action={suspensionAction} />}
-      {isTransactionsModalOpen && <TransactionsManagementModal isOpen={isTransactionsModalOpen} onClose={() => setIsTransactionsModalOpen(false)} user={selectedUser} transactions={getUserTransactions(selectedUser?.id)} onUpdate={loadData} />}
-      {isWalletBreakdownModalOpen && <WalletBreakdownModal isOpen={isWalletBreakdownModalOpen} onClose={() => setIsWalletBreakdownModalOpen(false)} user={selectedUser} onRefresh={loadData} />}
-      {isViewWalletsModalOpen && <ViewUserWalletsModal isOpen={isViewWalletsModalOpen} onClose={() => setIsViewWalletsModalOpen(false)} user={selectedUser} />}
-      {isDepositModalOpen && <CreditUserModal isOpen={isDepositModalOpen} onClose={() => setIsDepositModalOpen(false)} user={selectedUser} onUpdate={loadData} onFeedback={showFeedback} />}
-
-      {/* Withdrawal Code Modal */}
-      <WithdrawalCodeModal
-        isOpen={isWithdrawalCodeModalOpen}
-        onClose={() => setIsWithdrawalCodeModalOpen(false)}
-        user={selectedUser}
-      />
-
-      {/* Feedback Modal */}
-      <FeedbackModal
-        isOpen={feedback.isOpen}
-        onClose={() => setFeedback({ ...feedback, isOpen: false })}
-        type={feedback.type}
-        title={feedback.title}
-        message={feedback.message}
-      />
-
-      {/* App 2 Specific Modals */}
-      {appConfig.id === 'app2' && (
-        <>
-          <WalletActivationStatusModal
-            isOpen={isActivationStatusModalOpen}
-            onClose={() => setIsActivationStatusModalOpen(false)}
-            isActivated={selectedUser?.wallet_activated || false}
-            activationFee={activationFee}
-            onMakeDeposit={() => {
-              setIsActivationStatusModalOpen(false);
-              openModal(setIsDepositModalOpen, selectedUser);
-            }}
-          />
-
-          <ActivationFeeModal
-            isOpen={isActivationFeeModalOpen}
-            onClose={() => setIsActivationFeeModalOpen(false)}
-            currentFee={activationFee}
-            onSave={handleSaveActivationFee}
-          />
-        </>
-      )}
-
-      {/* Confirmation Modal for Suspend/Unsuspend/Delete */}
-      <ConfirmationModal
-        isOpen={confirmationModal.isOpen}
-        onClose={() => setConfirmationModal({ isOpen: false, type: '', user: null, action: '', title: '', message: '' })}
-        onConfirm={handleConfirmation}
-        title={confirmationModal.title}
-        message={confirmationModal.message}
-        confirmText={confirmationModal.type === 'suspension' && confirmationModal.action === 'suspend' ? 'Suspend' :
-                    confirmationModal.type === 'suspension' ? 'Unsuspend' : 'Delete'}
-        confirmVariant={confirmationModal.type === 'delete' ? 'destructive' : 'default'}
-      />
+        {/* Debug Info */}
+        {process.env.NODE_ENV === 'development' && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="text-sm">Debug Info</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <pre className="text-xs bg-gray-100 p-4 rounded overflow-auto">
+                {JSON.stringify({ 
+                  userCount: users.length, 
+                  currentUser: userProfile,
+                  timestamp: new Date().toISOString()
+                }, null, 2)}
+              </pre>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
-  );
+  )
 }

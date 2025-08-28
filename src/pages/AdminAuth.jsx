@@ -13,7 +13,7 @@ export default function AdminAuth() {
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const navigate = useNavigate()
-  const { signIn } = useAuth()
+  const { signIn, userProfile } = useAuth()
   const { toast } = useToast()
 
   const [form, setForm] = useState({
@@ -39,43 +39,71 @@ export default function AdminAuth() {
 
       // Check if user is admin or super_admin
       if (data?.user) {
-        // Fetch user profile to check role
-        const { data: profile, error: profileError } = await supabase
-          .from('users')
-          .select('role')
-          .eq('email', form.email)
-          .single()
+        // Wait a moment for the profile to be fetched in AuthContext
+        setTimeout(() => {
+          if (userProfile) {
+            if (userProfile.role === 'admin') {
+              toast({
+                title: "Login successful",
+                description: "Welcome, Admin!",
+                variant: "success",
+              })
+              navigate('/AdminDashboard')
+            } else if (userProfile.role === 'super_admin') {
+              toast({
+                title: "Login successful",
+                description: "Welcome, Super Admin!",
+                variant: "success",
+              })
+              navigate('/SuperAdminDashboard')
+            } else {
+              toast({
+                title: "Access denied",
+                description: "You don't have admin privileges",
+                variant: "destructive",
+              })
+            }
+          } else {
+            // Fallback: try to get profile directly if context doesn't have it
+            supabase
+              .from('users')
+              .select('role')
+              .eq('email', form.email)
+              .single()
+              .then(({ data: profile, error: profileError }) => {
+                if (profileError || !profile) {
+                  toast({
+                    title: "Access denied",
+                    description: "User profile not found",
+                    variant: "destructive",
+                  })
+                  return
+                }
 
-        if (profileError || !profile) {
-          toast({
-            title: "Access denied",
-            description: "User profile not found",
-            variant: "destructive",
-          })
-          return
-        }
-
-        if (profile.role === 'admin') {
-          toast({
-            title: "Login successful",
-            description: "Welcome, Admin!",
-            variant: "success",
-          })
-          navigate('/AdminDashboard')
-        } else if (profile.role === 'super_admin') {
-          toast({
-            title: "Login successful",
-            description: "Welcome, Super Admin!",
-            variant: "success",
-          })
-          navigate('/SuperAdminDashboard')
-        } else {
-          toast({
-            title: "Access denied",
-            description: "You don't have admin privileges",
-            variant: "destructive",
-          })
-        }
+                if (profile.role === 'admin') {
+                  toast({
+                    title: "Login successful",
+                    description: "Welcome, Admin!",
+                    variant: "success",
+                  })
+                  navigate('/AdminDashboard')
+                } else if (profile.role === 'super_admin') {
+                  toast({
+                    title: "Login successful",
+                    description: "Welcome, Super Admin!",
+                    variant: "success",
+                  })
+                  navigate('/SuperAdminDashboard')
+                } else {
+                  toast({
+                    title: "Access denied",
+                    description: "You don't have admin privileges",
+                    variant: "destructive",
+                  })
+                }
+              })
+          }
+        }, 1000) // Wait 1 second for profile to load
       }
     } catch (error) {
       toast({
