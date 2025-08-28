@@ -277,6 +277,20 @@ export const AuthProvider = ({ children }) => {
           // IMPORTANT: Set the user profile immediately after successful login
           setUserProfile(profile)
           
+          // Set JWT claims for admin users to fix RLS policy access
+          if (profile.role === 'admin' || profile.role === 'super_admin') {
+            try {
+              console.log('Setting JWT claims for admin user:', profile.role)
+              // Call a function to set JWT claims (this will be handled by Supabase)
+              await supabase.auth.updateUser({
+                data: { role: profile.role }
+              })
+            } catch (claimError) {
+              console.warn('Warning: Could not set JWT claims:', claimError)
+              // Continue anyway - the login should still work
+            }
+          }
+          
           return { data, error: null }
         } catch (profileError) {
           console.error('Profile verification failed:', profileError)
