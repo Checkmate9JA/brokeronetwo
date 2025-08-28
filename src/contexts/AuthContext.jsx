@@ -30,12 +30,18 @@ export const AuthProvider = ({ children }) => {
     try {
       console.log('fetchUserProfile: Fetching profile for email:', email)
       
-      // Simple direct table access - more reliable
-      const { data, error } = await supabase
+      // Add timeout to prevent hanging
+      const profilePromise = supabase
         .from('users')
         .select('*')
         .eq('email', email)
         .single()
+      
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 5000) // 5 second timeout
+      })
+      
+      const { data, error } = await Promise.race([profilePromise, timeoutPromise])
       
       if (error) {
         console.error('Error fetching user profile:', error)
