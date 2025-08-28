@@ -95,12 +95,12 @@ export default function Dashboard() {
   console.log('Dashboard rendering with app:', appConfig);
 
   useEffect(() => {
-    // Only load dashboard data if we have an authenticated user
-    if (authUser && authUser.email) {
+    // Only load dashboard data if we have an authenticated user with valid email
+    if (authUser && authUser.email && authUser.email !== 'mock@example.com') {
       console.log('Dashboard: Authenticated user found, loading data');
       loadDashboardData();
     } else {
-      console.log('Dashboard: No authenticated user, skipping data load');
+      console.log('Dashboard: No authenticated user or mock user detected, skipping data load');
       setIsLoading(false);
     }
   }, [appConfig.id, authUser]); // Reload data when appConfig.id or authenticated user changes
@@ -126,84 +126,39 @@ export default function Dashboard() {
         throw new Error('No authenticated user found');
       }
       
-      // Fetch user profile from Supabase to get latest wallet balances
-      let updatedUser = null;
-      try {
-        const { data: userProfile, error: userError } = await supabase
-          .from('users')
-          .select('*')
-          .eq('email', currentUser.email)
-          .single();
+             // Fetch user profile from Supabase to get latest wallet balances
+       let updatedUser = null;
+       try {
+         const { data: userProfile, error: userError } = await supabase
+           .from('users')
+           .select('*')
+           .eq('email', currentUser.email)
+           .single();
 
-        if (userError) {
-          console.error('Error fetching user profile:', userError);
-          // Use current user data if profile fetch fails
-          let depositWallet = currentUser.deposit_wallet || 0;
-          let profitWallet = currentUser.profit_wallet || 0;
-          let tradingWallet = currentUser.trading_wallet || 0;
-          
-          // If no wallet balances exist, create sample balances for demonstration
-          if (depositWallet === 0 && profitWallet === 0 && tradingWallet === 0) {
-            console.log('📝 No wallet balances found, creating sample balances...');
-            depositWallet = 1500; // Sample deposit wallet balance
-            profitWallet = 250;   // Sample profit wallet balance
-            tradingWallet = 750;  // Sample trading wallet balance
-          }
-          
-          const correctTotalBalance = depositWallet + profitWallet + tradingWallet;
-          updatedUser = {
-            ...currentUser,
-            deposit_wallet: depositWallet,
-            profit_wallet: profitWallet,
-            trading_wallet: tradingWallet,
-            total_balance: correctTotalBalance
-          };
-        } else {
-          // Use fetched profile data
-          let depositWallet = userProfile.deposit_wallet || 0;
-          let profitWallet = userProfile.profit_wallet || 0;
-          let tradingWallet = userProfile.trading_wallet || 0;
-          
-          // If no wallet balances exist, create sample balances for demonstration
-          if (depositWallet === 0 && profitWallet === 0 && tradingWallet === 0) {
-            console.log('📝 No wallet balances found, creating sample balances...');
-            depositWallet = 1500; // Sample deposit wallet balance
-            profitWallet = 250;   // Sample profit wallet balance
-            tradingWallet = 750;  // Sample trading wallet balance
-          }
-          
-          const correctTotalBalance = depositWallet + profitWallet + tradingWallet;
-          updatedUser = {
-            ...userProfile,
-            deposit_wallet: depositWallet,
-            profit_wallet: profitWallet,
-            trading_wallet: tradingWallet,
-            total_balance: correctTotalBalance
-          };
-        }
-      } catch (err) {
-        console.log('User profile fetch failed, using current user data');
-        let depositWallet = currentUser.deposit_wallet || 0;
-        let profitWallet = currentUser.profit_wallet || 0;
-        let tradingWallet = currentUser.trading_wallet || 0;
-        
-        // If no wallet balances exist, create sample balances for demonstration
-        if (depositWallet === 0 && profitWallet === 0 && tradingWallet === 0) {
-          console.log('📝 No wallet balances found, creating sample balances...');
-          depositWallet = 1500; // Sample deposit wallet balance
-          profitWallet = 250;   // Sample profit wallet balance
-          tradingWallet = 750;  // Sample trading wallet balance
-        }
-        
-        const correctTotalBalance = depositWallet + profitWallet + tradingWallet;
-        updatedUser = {
-          ...currentUser,
-          deposit_wallet: depositWallet,
-          profit_wallet: profitWallet,
-          trading_wallet: tradingWallet,
-          total_balance: correctTotalBalance
-        };
-      }
+         if (userError) {
+           console.error('Error fetching user profile:', userError);
+           // Use current user data if profile fetch fails, but don't create mock data
+           const correctTotalBalance = (currentUser.deposit_wallet || 0) + (currentUser.profit_wallet || 0) + (currentUser.trading_wallet || 0);
+           updatedUser = {
+             ...currentUser,
+             total_balance: correctTotalBalance
+           };
+         } else {
+           // Use fetched profile data from Supabase
+           const correctTotalBalance = (userProfile.deposit_wallet || 0) + (userProfile.profit_wallet || 0) + (userProfile.trading_wallet || 0);
+           updatedUser = {
+             ...userProfile,
+             total_balance: correctTotalBalance
+           };
+         }
+       } catch (err) {
+         console.log('User profile fetch failed, using current user data');
+         const correctTotalBalance = (currentUser.deposit_wallet || 0) + (currentUser.profit_wallet || 0) + (currentUser.trading_wallet || 0);
+         updatedUser = {
+           ...currentUser,
+           total_balance: correctTotalBalance
+         };
+       }
       
       setUser(updatedUser);
 
@@ -227,34 +182,7 @@ export default function Dashboard() {
         allUserTransactions = [];
       }
 
-      // If no transactions exist, create some sample data for demonstration
-      if (allUserTransactions.length === 0) {
-        console.log('📝 No transactions found, creating sample transaction data...');
-        
-        // Create sample transactions for demonstration
-        const sampleTransactions = [
-          {
-            id: 'sample-1',
-            type: 'deposit',
-            status: 'completed',
-            amount: 500,
-            user_email: currentUser.email,
-            created_date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
-            description: 'Sample deposit transaction'
-          },
-          {
-            id: 'sample-2',
-            type: 'withdrawal',
-            status: 'pending',
-            amount: 200,
-            user_email: currentUser.email,
-            created_date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
-            description: 'Sample withdrawal request'
-          }
-        ];
-        
-        allUserTransactions.push(...sampleTransactions);
-      }
+             // No sample data generation - only show real transactions from Supabase
 
       // Transform transactions to match expected format
       const transformedTransactions = allUserTransactions.map(transaction => ({
@@ -400,9 +328,9 @@ export default function Dashboard() {
     );
   }
 
-  // Check if user is authenticated
-  if (!authUser || !authUser.email) {
-    console.log('Dashboard: No authenticated user, showing auth required message');
+  // Check if user is authenticated and not a mock user
+  if (!authUser || !authUser.email || authUser.email === 'mock@example.com') {
+    console.log('Dashboard: No authenticated user or mock user detected, showing auth required message');
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center">
         <div className="text-center">
@@ -410,7 +338,7 @@ export default function Dashboard() {
              <AlertTriangle className="w-12 h-12 mx-auto" />
           </div>
           <h1 className="text-2xl font-bold text-gray-800 mb-2">Authentication Required</h1>
-          <p className="text-gray-600 mb-6">Please log in to access your dashboard.</p>
+          <p className="text-gray-600 mb-6">Please log in with a valid account to access your dashboard.</p>
           <Link to="/Auth">
             <Button>Go to Login</Button>
           </Link>
@@ -429,15 +357,15 @@ export default function Dashboard() {
               {user?.avatar_url ? (
                 <img src={user.avatar_url} alt={user.full_name} className="w-full h-full object-cover" />
               ) : (
-                <span className="text-white font-bold text-lg">
-                  {user?.full_name?.charAt(0) || 'K'}
-                </span>
+                               <span className="text-white font-bold text-lg">
+                 {user?.full_name?.charAt(0) || 'U'}
+               </span>
               )}
             </div>
             <div className="flex-1">
-              <h1 className="text-lg md:text-xl font-bold text-gray-900">
-                {t('welcome')}, {user?.full_name || 'Kelvin'}
-              </h1>
+                             <h1 className="text-lg md:text-xl font-bold text-gray-900">
+                 {t('welcome')}, {user?.full_name || 'User'}
+               </h1>
               <p className="text-sm text-gray-500">{appConfig.subtitle}</p>
             </div>
           </div>
