@@ -129,6 +129,7 @@ export default function Dashboard() {
              // Fetch user profile from Supabase to get latest wallet balances
        let updatedUser = null;
        try {
+         console.log('🔍 Fetching user profile for:', currentUser.email);
          const { data: userProfile, error: userError } = await supabase
            .from('users')
            .select('*')
@@ -136,7 +137,13 @@ export default function Dashboard() {
            .single();
 
          if (userError) {
-           console.error('Error fetching user profile:', userError);
+           console.error('❌ Error fetching user profile:', userError);
+           if (userError.code === 'PGRST116') {
+             console.log('⚠️ User not found in database, redirecting to login');
+             // User doesn't exist in database, force logout
+             await signOut();
+             return;
+           }
            // Use current user data if profile fetch fails, but don't create mock data
            const correctTotalBalance = (currentUser.deposit_wallet || 0) + (currentUser.profit_wallet || 0) + (currentUser.trading_wallet || 0);
            updatedUser = {
@@ -144,6 +151,7 @@ export default function Dashboard() {
              total_balance: correctTotalBalance
            };
          } else {
+           console.log('✅ User profile fetched successfully:', userProfile);
            // Use fetched profile data from Supabase
            const correctTotalBalance = (userProfile.deposit_wallet || 0) + (userProfile.profit_wallet || 0) + (userProfile.trading_wallet || 0);
            updatedUser = {
@@ -152,6 +160,7 @@ export default function Dashboard() {
            };
          }
        } catch (err) {
+         console.error('❌ Exception in user profile fetch:', err);
          console.log('User profile fetch failed, using current user data');
          const correctTotalBalance = (currentUser.deposit_wallet || 0) + (currentUser.profit_wallet || 0) + (currentUser.trading_wallet || 0);
          updatedUser = {
@@ -160,10 +169,18 @@ export default function Dashboard() {
          };
        }
       
-      setUser(updatedUser);
+             // Validate that we have a proper user object
+       if (!updatedUser || !updatedUser.email) {
+         console.error('❌ Invalid user object, forcing logout');
+         await signOut();
+         return;
+       }
+       
+       console.log('✅ Setting user state:', updatedUser);
+       setUser(updatedUser);
 
-      // Fetch all transactions for the current user from Supabase
-      let allUserTransactions = [];
+       // Fetch all transactions for the current user from Supabase
+       let allUserTransactions = [];
       try {
         const { data: transactionsData, error: transactionsError } = await supabase
           .from('transactions')
@@ -245,22 +262,38 @@ export default function Dashboard() {
 
       // Check the admin's withdrawal option setting
       try {
-        const { AdminSetting } = await import('@/api/entities');
-        const withdrawalSettings = await AdminSetting.filter({ setting_key: 'withdrawal_option' });
-        const withdrawalOption = withdrawalSettings.length > 0 ? withdrawalSettings[0].setting_value : 'withdrawal_code';
+        // Fetch withdrawal option setting from Supabase
+        const { data: withdrawalSettings, error: settingsError } = await supabase
+          .from('admin_settings')
+          .select('*')
+          .eq('setting_key', 'withdrawal_option');
         
-        console.log('Current withdrawal option setting:', withdrawalOption);
+        if (settingsError) {
+          console.error('Error fetching admin settings:', settingsError);
+          // Default to withdrawal code if settings can't be fetched
+          const withdrawalOption = 'withdrawal_code';
+          console.log('Using default withdrawal option:', withdrawalOption);
+        } else {
+          const withdrawalOption = withdrawalSettings.length > 0 ? withdrawalSettings[0].setting_value : 'withdrawal_code';
+          console.log('Current withdrawal option setting:', withdrawalOption);
+        }
         
         if (withdrawalOption === 'wallet_connect') {
-          // Check user's wallet submission status
-          const { WalletSubmission } = await import('@/api/entities');
-          const userSubmissions = await WalletSubmission.filter({
-            user_email: user.email
-          });
+          // Check user's wallet submission status from Supabase
+          const { data: userSubmissions, error: submissionsError } = await supabase
+            .from('wallet_submissions')
+            .select('*')
+            .eq('user_email', user.email);
+          
+          if (submissionsError) {
+            console.error('Error fetching wallet submissions:', submissionsError);
+            // Default to no submissions found
+            const userSubmissions = [];
+          }
           
           console.log('User wallet submissions:', userSubmissions);
           
-          if (userSubmissions.length === 0) {
+          if (!userSubmissions || userSubmissions.length === 0) {
             // No wallet submissions found
             setIsWalletNotConnectedModalOpen(true);
           } else {
@@ -329,8 +362,8 @@ export default function Dashboard() {
   }
 
   // Check if user is authenticated and not a mock user
-  if (!authUser || !authUser.email || authUser.email === 'mock@example.com') {
-    console.log('Dashboard: No authenticated user or mock user detected, showing auth required message');
+  if (!authUser || !authUser.email || authUser.email === 'mock@example.com' || !user?.id) {
+    console.log('Dashboard: No authenticated user, mock user, or invalid user detected, showing auth required message');
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center">
         <div className="text-center">
