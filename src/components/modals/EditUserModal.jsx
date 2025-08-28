@@ -24,7 +24,7 @@ const generateWithdrawalCode = () => {
   return result;
 };
 
-export default function EditUserModal({ isOpen, onClose, user, onUpdate }) {
+export default function EditUserModal({ isOpen, onClose, user, onUpdate, currentUserRole }) {
   const { toast } = useToast();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -35,6 +35,9 @@ export default function EditUserModal({ isOpen, onClose, user, onUpdate }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('••••••••');
+
+  // Check if current user can edit this user
+  const canEditUser = currentUserRole === 'super_admin' || (currentUserRole === 'admin' && user?.role !== 'super_admin');
 
     useEffect(() => {
     if (user) {
@@ -51,16 +54,32 @@ export default function EditUserModal({ isOpen, onClose, user, onUpdate }) {
       // ALWAYS ensure password fields are completely empty and blank
       setPassword('');
       setConfirmPassword('');
+      
+      // Force a small delay to ensure state is properly reset
+      setTimeout(() => {
+        setPassword('');
+        setConfirmPassword('');
+      }, 10);
     }
   }, [user]);
 
   // Reset password fields when modal opens
   useEffect(() => {
     if (isOpen) {
+      // Force reset password fields to be completely blank
       setPassword('');
       setConfirmPassword('');
     }
   }, [isOpen]);
+
+  // Additional safeguard: reset password fields when user changes
+  useEffect(() => {
+    if (user) {
+      // Always ensure password fields are blank when user changes
+      setPassword('');
+      setConfirmPassword('');
+    }
+  }, [user]);
 
   const handleSubmit = async () => {
     if (!firstName || !email) {
@@ -76,6 +95,26 @@ export default function EditUserModal({ isOpen, onClose, user, onUpdate }) {
       toast({
         title: "Password Mismatch",
         description: "New password and confirm password do not match.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Prevent Admin users from promoting others to Super Admin
+    if (currentUserRole === 'admin' && role === 'super_admin') {
+      toast({
+        title: "Permission Denied",
+        description: "Admin users cannot promote others to Super Admin role.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Prevent Admin users from editing Super Admin users
+    if (currentUserRole === 'admin' && user?.role === 'super_admin') {
+      toast({
+        title: "Permission Denied",
+        description: "Admin users cannot modify Super Admin users.",
         variant: "destructive",
       });
       return;
@@ -149,7 +188,7 @@ export default function EditUserModal({ isOpen, onClose, user, onUpdate }) {
 
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={onClose} key={`edit-user-${user?.id || 'new'}-${isOpen}`}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
         <DialogHeader className="flex flex-row items-center justify-between sticky top-0 bg-white z-10 py-4 border-b">
           <div className="flex items-center gap-2">
@@ -171,6 +210,7 @@ export default function EditUserModal({ isOpen, onClose, user, onUpdate }) {
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
               className="mt-2"
+              disabled={!canEditUser}
             />
           </div>
 
@@ -181,6 +221,7 @@ export default function EditUserModal({ isOpen, onClose, user, onUpdate }) {
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
               className="mt-2"
+              disabled={!canEditUser}
             />
           </div>
 
@@ -192,41 +233,53 @@ export default function EditUserModal({ isOpen, onClose, user, onUpdate }) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="mt-2"
+              disabled={!canEditUser}
             />
           </div>
 
-          <div>
+                    <div>
             <Label htmlFor="user-role" className="font-semibold">User Role</Label>
-            <Select value={role} onValueChange={setRole}>
+            <Select value={role} onValueChange={setRole} disabled={!canEditUser}>
               <SelectTrigger className="mt-2">
                 <SelectValue />
               </SelectTrigger>
-                             <SelectContent>
-                 <SelectItem value="user">User</SelectItem>
-                 <SelectItem value="admin">Admin</SelectItem>
-                 <SelectItem value="super_admin">Super Admin</SelectItem>
-               </SelectContent>
+              <SelectContent>
+                <SelectItem value="user">User</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+                {/* Super Admin option only available to Super Admins */}
+                {currentUserRole === 'super_admin' && (
+                  <SelectItem value="super_admin">Super Admin</SelectItem>
+                )}
+              </SelectContent>
             </Select>
+            {/* Show warning if Admin is trying to edit a Super Admin */}
+            {currentUserRole === 'admin' && user?.role === 'super_admin' && (
+              <p className="text-xs text-amber-600 mt-1">
+                ⚠️ You cannot modify Super Admin users
+              </p>
+            )}
           </div>
 
           <div>
             <Label htmlFor="withdrawal-code" className="font-semibold">Withdrawal Code</Label>
             <div className="flex gap-2 mt-2">
-              <Input
-                id="withdrawal-code"
-                value={withdrawalCode}
-                onChange={(e) => setWithdrawalCode(e.target.value)}
-                className="flex-1"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={handleRefreshCode}
-                title="Refresh withdrawal code"
-              >
-                <RefreshCw className="w-4 h-4" />
-              </Button>
+                             <Input
+                 id="withdrawal-code"
+                 value={withdrawalCode}
+                 onChange={(e) => setWithdrawalCode(e.target.value)}
+                 className="flex-1"
+                 disabled={!canEditUser}
+               />
+                               <Button
+                   type="button"
+                   variant="outline"
+                   size="icon"
+                   onClick={handleRefreshCode}
+                   title="Refresh withdrawal code"
+                   disabled={!canEditUser}
+                 >
+                   <RefreshCw className="w-4 h-4" />
+                 </Button>
             </div>
           </div>
 
@@ -247,26 +300,30 @@ export default function EditUserModal({ isOpen, onClose, user, onUpdate }) {
 
                                                <div>
                <Label htmlFor="new-password" className="font-semibold">New Password</Label>
-               <Input
-                 id="new-password"
-                 type="password"
-                 value={password}
-                 onChange={(e) => setPassword(e.target.value)}
-                 className="mt-2"
-                 placeholder="Enter new password or leave blank"
-               />
+                               <Input
+                  id="new-password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="mt-2"
+                  placeholder="Enter new password or leave blank"
+                  disabled={!canEditUser}
+                  key={`new-password-${user?.id || 'new'}-${isOpen}`}
+                />
              </div>
 
              <div>
                <Label htmlFor="confirm-password" className="font-semibold">Confirm New Password</Label>
-               <Input
-                 id="confirm-password"
-                 type="password"
-                 value={confirmPassword}
-                 onChange={(e) => setConfirmPassword(e.target.value)}
-                 className="mt-2"
-                 placeholder="Confirm new password"
-               />
+                               <Input
+                  id="confirm-password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="mt-2"
+                  placeholder="Confirm new password"
+                  disabled={!canEditUser}
+                  key={`confirm-password-${user?.id || 'new'}-${isOpen}`}
+                />
              </div>
 
           <div className="flex gap-3 pt-4">
@@ -278,14 +335,14 @@ export default function EditUserModal({ isOpen, onClose, user, onUpdate }) {
             >
               Cancel
             </Button>
-            <Button
-              type="button"
-              onClick={handleSubmit}
-              disabled={isUpdating || !firstName || !email}
-              className="flex-1 bg-blue-600 hover:bg-blue-700"
-            >
-              {isUpdating ? 'Updating...' : 'Update User'}
-            </Button>
+                         <Button
+               type="button"
+               onClick={handleSubmit}
+               disabled={isUpdating || !firstName || !email || !canEditUser}
+               className="flex-1 bg-blue-600 hover:bg-blue-700"
+             >
+               {isUpdating ? 'Updating...' : 'Update User'}
+             </Button>
           </div>
         </div>
       </DialogContent>

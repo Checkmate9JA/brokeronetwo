@@ -49,6 +49,7 @@ import WithdrawalCodeModal from '../components/modals/WithdrawalCodeModal';
 import FeedbackModal from '../components/modals/FeedbackModal';
 import ConfirmationModal from '../components/modals/ConfirmationModal';
 import { useApp } from '../components/AppProvider';
+import { useAuth } from '../contexts/AuthContext';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -61,6 +62,7 @@ const generateWithdrawalCode = () => {
 };
 
 export default function AdminUsers() {
+  const { userProfile } = useAuth();
   const [users, setUsers] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [walletSubmissions, setWalletSubmissions] = useState([]);
@@ -549,7 +551,7 @@ export default function AdminUsers() {
       {/* Modals */}
       {isCreditModalOpen && <CreditUserModal isOpen={isCreditModalOpen} onClose={() => setIsCreditModalOpen(false)} user={selectedUser} onUpdate={loadData} onFeedback={showFeedback} />}
       {isDebitModalOpen && <DebitUserModal isOpen={isDebitModalOpen} onClose={() => setIsDebitModalOpen(false)} user={selectedUser} onUpdate={loadData} onFeedback={showFeedback} />}
-      {isEditModalOpen && <EditUserModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} user={selectedUser} onUpdate={loadData} />}
+      {isEditModalOpen && <EditUserModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} user={selectedUser} onUpdate={loadData} currentUserRole={userProfile?.role} />}
       {isEmailModalOpen && <SendEmailModal isOpen={isEmailModalOpen} onClose={() => setIsEmailModalOpen(false)} user={selectedUser} />}
       {isHistoryModalOpen && <AddHistoryModal isOpen={isHistoryModalOpen} onClose={() => setIsHistoryModalOpen(false)} user={selectedUser} onUpdate={loadData} />}
       {isAddUserModalOpen && <AddNewUserModal isOpen={isAddUserModalOpen} onClose={() => setIsAddUserModalOpen(false)} onUpdate={loadData} />}
