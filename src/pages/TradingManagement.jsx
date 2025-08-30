@@ -63,7 +63,7 @@ export default function TradingManagement() {
             const { data, error } = await supabase
                 .from('trading_instruments')
                 .select('*')
-                .order('created_at', { ascending: false });
+                .order('name', { ascending: true }); // Sort alphabetically by name
 
             if (error) {
                 throw error;
