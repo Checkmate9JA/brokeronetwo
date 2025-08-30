@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TradingInstrument } from '@/api/entities';
+import { supabase } from '@/lib/supabase';
 import { Settings } from 'lucide-react';
 
 export default function InstrumentSettingsModal({ isOpen, onClose, instrument, onSuccess, onFeedback }) {
@@ -57,13 +57,36 @@ export default function InstrumentSettingsModal({ isOpen, onClose, instrument, o
 
     setIsSubmitting(true);
     try {
-      await TradingInstrument.update(instrument.id, formData);
+      console.log('🔍 Updating instrument settings with data:', formData);
+      
+      const { data, error } = await supabase
+        .from('trading_instruments')
+        .update({
+          leverage_options: formData.leverage_options,
+          market_hours: formData.market_hours,
+          spread_percentage: formData.spread_percentage,
+          min_trade_amount: formData.min_trade_amount,
+          max_trade_amount: formData.max_trade_amount,
+          auto_stop_loss_percentage: formData.auto_stop_loss_percentage,
+          auto_take_profit_percentage: formData.auto_take_profit_percentage,
+          trading_fee_percentage: formData.trading_fee_percentage,
+          allows_short_selling: formData.allows_short_selling
+        })
+        .eq('id', instrument.id)
+        .select();
+
+      if (error) {
+        console.error('❌ Error updating instrument settings:', error);
+        throw new Error(`Failed to update instrument settings: ${error.message}`);
+      }
+
+      console.log('✅ Instrument settings updated successfully:', data);
       onFeedback('success', 'Settings Updated', 'Trading instrument settings have been updated successfully.');
       onSuccess();
       onClose();
     } catch (error) {
-      console.error('Error updating instrument settings:', error);
-      onFeedback('error', 'Update Failed', 'Failed to update instrument settings.');
+      console.error('❌ Error updating instrument settings:', error);
+      onFeedback('error', 'Update Failed', error.message || 'Failed to update instrument settings.');
     } finally {
       setIsSubmitting(false);
     }
