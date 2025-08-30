@@ -123,7 +123,7 @@ export default function AdminPendingWithdrawals() {
   
   const getUserInfo = (withdrawal) => {
     // First try to use user_email if it exists
-    const emailToLookup = withdrawal.user_email || withdrawal.created_by;
+    const emailToLookup = withdrawal.user_email;
     if (!emailToLookup) return null;
     
     return users[emailToLookup.toLowerCase()] || null;
@@ -177,36 +177,67 @@ export default function AdminPendingWithdrawals() {
   const handleReject = async (reason) => {
     if (!selectedWithdrawal) return;
     try {
-      // 1. Update transaction status
-              const { error: updateError } = await supabase
-          .from('transactions')
-          .update({ status: 'rejected', rejection_reason: reason })
-          .eq('id', selectedWithdrawal.id);
+      console.log('🔍 Starting withdrawal rejection process...', {
+        withdrawalId: selectedWithdrawal.id,
+        amount: selectedWithdrawal.amount,
+        userEmail: selectedWithdrawal.user_email,
+        reason: reason
+      });
 
-        if (updateError) {
-          throw new Error(`Failed to update transaction: ${updateError.message}`);
-        }
-      
-      // 2. Refund the user
-      const user = getUserInfo(selectedWithdrawal);
-      if (user) {
-        const newProfitWallet = (user.profit_wallet || 0) + selectedWithdrawal.amount;
-        const newTotalBalance = (user.total_balance || 0) + selectedWithdrawal.amount;
-        await User.update(user.id, {
-          profit_wallet: newProfitWallet,
-          total_balance: newTotalBalance
-        });
-      } else {
-        console.warn(`User not found for withdrawal refund.`);
+      // 1. Update transaction status
+      console.log('📝 Updating transaction status to rejected...');
+      const { error: updateError } = await supabase
+        .from('transactions')
+        .update({ status: 'rejected', rejection_reason: reason })
+        .eq('id', selectedWithdrawal.id);
+
+      if (updateError) {
+        console.error('❌ Transaction status update failed:', updateError);
+        throw new Error(`Failed to update transaction: ${updateError.message}`);
       }
 
+      console.log('✅ Transaction status updated successfully');
+      
+      // 2. Refund the user using Supabase
+      const user = getUserInfo(selectedWithdrawal);
+      if (user) {
+        console.log('💰 Refunding user balance...', {
+          userId: user.id,
+          currentProfitWallet: user.profit_wallet,
+          currentTotalBalance: user.total_balance,
+          refundAmount: selectedWithdrawal.amount
+        });
+
+        const newProfitWallet = (user.profit_wallet || 0) + selectedWithdrawal.amount;
+        const newTotalBalance = (user.total_balance || 0) + selectedWithdrawal.amount;
+        
+        const { error: userUpdateError } = await supabase
+          .from('users')
+          .update({ 
+            profit_wallet: newProfitWallet,
+            total_balance: newTotalBalance
+          })
+          .eq('id', user.id);
+
+        if (userUpdateError) {
+          console.error('❌ User balance update failed:', userUpdateError);
+          // Continue with rejection even if balance update fails
+          console.warn('⚠️ Continuing with rejection despite balance update failure');
+        } else {
+          console.log('✅ User balance refunded successfully');
+        }
+      } else {
+        console.warn('⚠️ User not found for withdrawal refund.');
+      }
+
+      console.log('🎉 Withdrawal rejection completed successfully');
       showFeedback('success', 'Success!', 'Withdrawal rejected and funds returned to user.');
       loadWithdrawals();
       setIsRejectModalOpen(false);
       setSelectedWithdrawal(null);
     } catch (error) {
-      console.error("Failed to reject withdrawal:", error);
-      showFeedback('error', 'Error', 'Failed to reject withdrawal. Please try again.');
+      console.error("❌ Failed to reject withdrawal:", error);
+      showFeedback('error', 'Error', `Failed to reject withdrawal: ${error.message}`);
     }
   };
 
@@ -218,7 +249,7 @@ export default function AdminPendingWithdrawals() {
   const filteredWithdrawals = withdrawals.filter(withdrawal => {
     const user = getUserInfo(withdrawal);
     const userName = user?.full_name || '';
-    const userEmail = withdrawal.user_email || withdrawal.created_by || '';
+    const userEmail = withdrawal.user_email || '';
 
     const matchesSearch = userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          userEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -287,7 +318,7 @@ export default function AdminPendingWithdrawals() {
                       </Badge>
                     </div>
                     <p className="text-sm text-gray-600 mb-2">
-                      {truncateUserInfo(user, withdrawal.user_email || withdrawal.created_by)}
+                      {truncateUserInfo(user, withdrawal.user_email)}
                     </p>
                     <div className="flex items-center gap-2 mb-2">
                       <p className="text-sm text-gray-500">

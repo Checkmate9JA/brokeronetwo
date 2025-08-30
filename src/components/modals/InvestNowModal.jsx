@@ -11,9 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Info } from 'lucide-react';
-import { UserInvestment } from '@/api/entities';
-import { User } from '@/api/entities';
-import { Transaction } from '@/api/entities';
+import { supabase } from '@/lib/supabase';
 
 const formatCurrency = (amount) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 
@@ -93,18 +91,43 @@ export default function InvestNowModal({ isOpen, onClose, plan, user, onSuccess,
     const investmentAmount = parseFloat(amount);
     
     try {
+      console.log('🔍 Starting investment process...', {
+        userId: user.id,
+        userEmail: user.email,
+        currentTradingWallet: user.trading_wallet,
+        investmentAmount,
+        planId: plan.id,
+        planName: plan.name
+      });
+
       const newTradingBalance = user.trading_wallet - investmentAmount;
       const newTotalBalance = user.total_balance - investmentAmount;
 
-      await User.update(user.id, {
-        trading_wallet: newTradingBalance,
-        total_balance: newTotalBalance
+      console.log('💰 Updating user balance...', {
+        newTradingBalance,
+        newTotalBalance
       });
+
+      // Update user balance using Supabase
+      const { error: userUpdateError } = await supabase
+        .from('users')
+        .update({
+          trading_wallet: newTradingBalance,
+          total_balance: newTotalBalance
+        })
+        .eq('id', user.id);
+
+      if (userUpdateError) {
+        console.error('❌ User balance update failed:', userUpdateError);
+        throw new Error(`Failed to update user balance: ${userUpdateError.message}`);
+      }
+
+      console.log('✅ User balance updated successfully');
       
       const maturityDate = new Date();
       maturityDate.setDate(maturityDate.getDate() + plan.duration_days);
 
-      await UserInvestment.create({
+      console.log('📊 Creating investment record...', {
         user_email: user.email,
         plan_id: plan.id,
         plan_name: plan.name,
@@ -115,8 +138,30 @@ export default function InvestNowModal({ isOpen, onClose, plan, user, onSuccess,
         maturity_date: maturityDate.toISOString(),
         status: 'active'
       });
+
+      // Create investment using Supabase
+      const { error: investmentError } = await supabase
+        .from('user_investments')
+        .insert({
+          user_email: user.email,
+          plan_id: plan.id,
+          plan_name: plan.name,
+          amount_invested: investmentAmount,
+          roi_percentage: plan.roi_percentage,
+          duration_days: plan.duration_days,
+          expected_profit: calculated.profit,
+          maturity_date: maturityDate.toISOString(),
+          status: 'active'
+        });
+
+      if (investmentError) {
+        console.error('❌ Investment creation failed:', investmentError);
+        throw new Error(`Failed to create investment: ${investmentError.message}`);
+      }
+
+      console.log('✅ Investment record created successfully');
       
-      await Transaction.create({
+      console.log('💳 Creating transaction record...', {
         type: 'transfer',
         amount: investmentAmount,
         status: 'completed',
@@ -125,10 +170,29 @@ export default function InvestNowModal({ isOpen, onClose, plan, user, onSuccess,
         created_by: user.email,
       });
 
+      // Create transaction using Supabase
+      const { error: transactionError } = await supabase
+        .from('transactions')
+        .insert({
+          type: 'transfer',
+          amount: investmentAmount,
+          status: 'completed',
+          description: `Investment in ${plan.name}`,
+          user_email: user.email,
+        });
+
+      if (transactionError) {
+        console.error('❌ Transaction creation failed:', transactionError);
+        throw new Error(`Failed to create transaction: ${transactionError.message}`);
+      }
+
+      console.log('✅ Transaction record created successfully');
+      console.log('🎉 Investment completed successfully!');
+
       onSuccess();
     } catch (err) {
-      console.error('Investment failed:', err);
-      onFeedback('error', 'Investment Failed', 'An unexpected error occurred. Please try again.');
+      console.error('❌ Investment failed:', err);
+      onFeedback('error', 'Investment Failed', err.message || 'An unexpected error occurred. Please try again.');
       // Revert balance if investment fails - ideally in a backend transaction
     } finally {
       setIsSubmitting(false);

@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { TradingInstrument } from '@/api/entities';
+import { supabase } from '@/lib/supabase';
 import { Edit } from 'lucide-react';
 
 const iconOptions = [
@@ -53,11 +53,39 @@ export default function EditInstrumentModal({ isOpen, onClose, instrument, onSuc
     
     setIsSubmitting(true);
     try {
-      await TradingInstrument.update(instrument.id, formData);
+      console.log('🔍 Updating trading instrument with data:', formData);
+      
+      // Update the trading instrument in Supabase
+      const { data, error } = await supabase
+        .from('trading_instruments')
+        .update({
+          name: formData.name,
+          description: formData.description || null,
+          icon: formData.icon || null,
+          market_type: formData.market_type,
+          leverage_options: formData.leverage_options || null,
+          is_active: formData.is_active
+        })
+        .eq('id', instrument.id)
+        .select();
+
+      if (error) {
+        console.error('❌ Error updating trading instrument:', error);
+        throw new Error(`Failed to update trading instrument: ${error.message}`);
+      }
+
+      console.log('✅ Trading instrument updated successfully:', data);
+      
+      // Show success feedback
+      onFeedback('success', 'Success!', 'Trading instrument updated successfully.');
+      
+      // Close modal and refresh data
       onSuccess();
+      onClose();
+      
     } catch (error) {
-      console.error('Error updating instrument:', error);
-      onFeedback('error', 'Update Failed', 'Failed to update instrument.');
+      console.error('❌ Error updating instrument:', error);
+      onFeedback('error', 'Update Failed', error.message || 'Failed to update instrument.');
     } finally {
       setIsSubmitting(false);
     }
@@ -75,11 +103,22 @@ export default function EditInstrumentModal({ isOpen, onClose, instrument, onSuc
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label htmlFor="name">Instrument Name *</Label>
-            <Input id="name" value={formData.name} onChange={(e) => handleChange('name', e.target.value)} required />
+            <Input 
+              id="name" 
+              value={formData.name} 
+              onChange={(e) => handleChange('name', e.target.value)} 
+              required 
+              placeholder="e.g., Bitcoin, EUR/USD, Apple Stock"
+            />
           </div>
           <div>
             <Label htmlFor="description">Description</Label>
-            <Textarea id="description" value={formData.description} onChange={(e) => handleChange('description', e.target.value)} />
+            <Textarea 
+              id="description" 
+              value={formData.description} 
+              onChange={(e) => handleChange('description', e.target.value)} 
+              placeholder="Describe the trading instrument..."
+            />
           </div>
           <div>
             <Label htmlFor="icon">Icon (emoji)</Label>
@@ -103,15 +142,28 @@ export default function EditInstrumentModal({ isOpen, onClose, instrument, onSuc
           </div>
           <div>
             <Label htmlFor="leverage">Leverage Options</Label>
-            <Input id="leverage" value={formData.leverage_options} onChange={(e) => handleChange('leverage_options', e.target.value)} placeholder="e.g., 1x, 5x, 10x" />
+            <Input 
+              id="leverage" 
+              value={formData.leverage_options} 
+              onChange={(e) => handleChange('leverage_options', e.target.value)} 
+              placeholder="e.g., 1x, 5x, 10x" 
+            />
           </div>
           <div className="flex items-center space-x-2">
-            <Switch id="active" checked={formData.is_active} onCheckedChange={(checked) => handleChange('is_active', checked)} />
+            <Switch 
+              id="active" 
+              checked={formData.is_active} 
+              onCheckedChange={(checked) => handleChange('is_active', checked)} 
+            />
             <Label htmlFor="active">Instrument is active</Label>
           </div>
           <DialogFooter className="gap-2">
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Updating...' : 'Update Instrument'}</Button>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Updating...' : 'Update Instrument'}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

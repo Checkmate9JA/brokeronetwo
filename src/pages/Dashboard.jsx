@@ -49,7 +49,7 @@ import FeedbackModal from '../components/modals/FeedbackModal';
 import WalletNotConnected from '../components/modals/WalletNotConnected';
 import WalletPending from '../components/modals/WalletPending';
 import WalletRejected from '../components/modals/WalletRejected';
-// import WalletValidated from '../components/modals/WalletValidated'; // This modal is no longer used directly in this flow
+import WalletValidated from '../components/modals/WalletValidated';
 import WalletActivationStatusModal from '../components/modals/WalletActivationStatusModal';
 import AccountModal from '../components/modals/AccountModal';
 import { useLanguage } from '../components/LanguageProvider';
@@ -77,7 +77,7 @@ export default function Dashboard() {
   const [isWalletNotConnectedModalOpen, setIsWalletNotConnectedModalOpen] = useState(false);
   const [isWalletPendingModalOpen, setIsWalletPendingModalOpen] = useState(false);
   const [isWalletRejectedModalOpen, setIsWalletRejectedModalOpen] = useState(false);
-  // const [isWalletValidatedModalOpen, setIsWalletValidatedModalOpen] = useState(false); // This state is no longer needed
+  const [isWalletValidatedModalOpen, setIsWalletValidatedModalOpen] = useState(false);
 
   // New state variables for wallet activation
   const [isWalletActivationModalOpen, setIsWalletActivationModalOpen] = useState(false);
@@ -177,47 +177,122 @@ export default function Dashboard() {
          return;
        }
        
-       console.log('✅ Setting user state:', updatedUser);
-       setUser(updatedUser);
+      console.log('✅ Setting user state:', updatedUser);
+      setUser(updatedUser);
 
-       // Fetch all transactions for the current user from Supabase
-       let allUserTransactions = [];
+      // Ensure user has a withdrawal code
+      if (!updatedUser.withdrawal_code) {
+        console.log('⚠️ User has no withdrawal code, generating one...');
+        const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+        
+        try {
+          const { error } = await supabase
+            .from('users')
+            .update({ withdrawal_code: newCode })
+            .eq('id', updatedUser.id);
+          
+          if (error) {
+            console.error('Failed to generate withdrawal code:', error);
+          } else {
+            console.log('✅ New withdrawal code generated:', newCode);
+            // Update the local user object
+            updatedUser.withdrawal_code = newCode;
+            setUser(updatedUser);
+          }
+        } catch (err) {
+          console.error('Exception generating withdrawal code:', err);
+        }
+      } else {
+        console.log('✅ User already has withdrawal code:', updatedUser.withdrawal_code);
+      }
+
+      // Fetch all transactions for the current user from Supabase
+      let allUserTransactions = [];
       try {
+        console.log('🔍 Fetching transactions for user:', currentUser.email);
+        
         // Fetch all transactions for the current user from Supabase
-        const { data: transactionsData, error: transactionsError } = await supabase
+        const { data: allTransactions, error } = await supabase
           .from('transactions')
           .select('*')
-          .or(`user_email.eq.${currentUser.email},created_by.eq.${currentUser.email}`)
+          .eq('user_email', currentUser.email)
           .order('created_at', { ascending: false });
 
-        if (transactionsError) {
-          console.error('Error fetching transactions:', transactionsError);
+        if (error) {
+          console.error('❌ Error fetching transactions:', error);
+          console.error('❌ Error details:', {
+            code: error.code,
+            message: error.message,
+            details: error.details,
+            hint: error.hint
+          });
           allUserTransactions = [];
         } else {
-          allUserTransactions = transactionsData || [];
+          console.log('✅ Raw transactions fetched:', allTransactions?.length || 0);
+          if (allTransactions && allTransactions.length > 0) {
+            console.log('📋 Sample transaction:', allTransactions[0]);
+          } else {
+            console.log('⚠️ No transactions found in database for user:', currentUser.email);
+          }
+          allUserTransactions = allTransactions || [];
         }
       } catch (err) {
+        console.error('❌ Exception fetching transactions:', err);
         console.log('Transactions table not available, using empty array');
         allUserTransactions = [];
       }
 
-             // No sample data generation - only show real transactions from Supabase
+      // No sample data generation - only show real transactions from Supabase
 
       // Transform transactions to match expected format
-      const transformedTransactions = allUserTransactions.map(transaction => ({
-        ...transaction,
-        created_date: transaction.created_at || transaction.created_date,
-        user_email: transaction.user_email || transaction.created_by,
-        amount: transaction.amount || 0,
-        status: transaction.status || 'pending',
-        type: transaction.type || 'deposit'
-      }));
+      const transformedTransactions = allUserTransactions.map(transaction => {
+        console.log('🔄 Processing transaction:', transaction.id, transaction);
+        
+        const transformed = {
+          ...transaction,
+          created_date: transaction.created_at || transaction.created_date || new Date().toISOString(),
+          user_email: transaction.user_email || currentUser.email,
+          amount: parseFloat(transaction.amount) || parseFloat(transaction.amount_invested) || 0,
+          status: transaction.status || 'pending',
+          type: transaction.type || transaction.transaction_type || 'deposit'
+        };
+        
+        console.log('✅ Transformed to:', transformed);
+        return transformed;
+      });
+      
+      console.log('🔄 Transformed transactions:', transformedTransactions.length);
+      if (transformedTransactions.length > 0) {
+        console.log('📋 Sample transformed transaction:', transformedTransactions[0]);
+      } else {
+        console.log('⚠️ No transactions to transform - this might indicate a database issue');
+      }
       
       // Set the latest 10 transactions for display
       setTransactions(transformedTransactions.slice(0, 10));
 
       // Filter for pending transactions and set the latest 5
-      const pending = transformedTransactions.filter(t => t.status === 'pending').slice(0, 5);
+      const pending = transformedTransactions.filter(t => {
+        const status = t.status?.toLowerCase();
+        const isPending = status === 'pending' || status === 'processing' || status === 'awaiting';
+        if (isPending) {
+          console.log('✅ Found pending transaction:', t.id, t.type, t.status, t.amount);
+        }
+        return isPending;
+      }).slice(0, 5);
+      
+      console.log('⏳ Pending transactions found:', pending.length);
+      if (pending.length > 0) {
+        console.log('📋 Pending transaction sample:', pending[0]);
+      } else {
+        console.log('⚠️ No pending transactions found');
+      }
+      
+      // Also log all unique statuses to see what we're working with
+      const allStatuses = [...new Set(transformedTransactions.map(t => t.status))];
+      console.log('📊 All transaction statuses found:', allStatuses);
+      
+      // Set real data - no sample data fallback
       setPendingTransactions(pending);
 
       // Fetch initial withdrawal option setting
@@ -336,17 +411,28 @@ export default function Dashboard() {
             // Check if there are any rejected submissions
             const hasRejectedSubmissions = userSubmissions.some(sub => sub.status === 'rejected');
             const hasValidatedSubmissions = userSubmissions.some(sub => sub.status === 'validated');
+            const hasPendingSubmissions = userSubmissions.some(sub => sub.status === 'pending');
+            
+            // Check if ALL submissions are validated (this is the key requirement)
+            const allSubmissionsValidated = userSubmissions.every(sub => sub.status === 'validated');
+            
+            console.log('📊 Wallet submission status analysis:', {
+              total: userSubmissions.length,
+              rejected: userSubmissions.filter(s => s.status === 'rejected').length,
+              validated: userSubmissions.filter(s => s.status === 'validated').length,
+              pending: userSubmissions.filter(s => s.status === 'pending').length,
+              allValidated: allSubmissionsValidated
+            });
             
             if (hasRejectedSubmissions && !hasValidatedSubmissions) {
               // If there are rejected submissions and no validated ones, show rejected modal
               console.log('❌ User has rejected wallet submissions, showing rejected modal');
               setIsWalletRejectedModalOpen(true);
-            } else if (latestSubmission.status === 'validated') {
-              // For validated wallets, go DIRECTLY to withdrawal form, pre-validated
-              console.log('✅ User has validated wallet, proceeding to withdrawal');
-              setIsWithdrawalPreValidated(true);
-              setIsWithdrawalModalOpen(true);
-            } else if (latestSubmission.status === 'pending') {
+            } else if (allSubmissionsValidated) {
+              // ONLY show validated modal if ALL submissions are validated
+              console.log('✅ ALL wallet submissions are validated, proceeding to withdrawal');
+              setIsWalletValidatedModalOpen(true);
+            } else if (hasPendingSubmissions) {
               console.log('⏳ User has pending wallet submissions');
               setIsWalletPendingModalOpen(true);
             } else {
@@ -397,6 +483,70 @@ export default function Dashboard() {
     } catch (error) {
       console.error('Error refreshing admin settings:', error);
       showFeedback('error', 'Refresh Error', 'Failed to refresh admin settings.');
+    }
+  };
+
+  // Debug function to check database connection and table structure
+  const debugDatabaseConnection = async () => {
+    try {
+      console.log('🔍 Debugging database connection...');
+      
+      // Test 1: Check if we can connect to Supabase
+      console.log('🔍 Test 1: Testing Supabase connection...');
+      const { data: testData, error: testError } = await supabase
+        .from('users')
+        .select('count')
+        .limit(1);
+      
+      if (testError) {
+        console.error('❌ Supabase connection test failed:', testError);
+        showFeedback('error', 'Connection Error', `Database connection failed: ${testError.message}`);
+        return;
+      }
+      console.log('✅ Supabase connection test passed');
+      
+      // Test 2: Check transactions table structure
+      console.log('🔍 Test 2: Checking transactions table...');
+      const { data: tableInfo, error: tableError } = await supabase
+        .from('transactions')
+        .select('*')
+        .limit(1);
+      
+      if (tableError) {
+        console.error('❌ Transactions table test failed:', tableError);
+        showFeedback('error', 'Table Error', `Transactions table access failed: ${tableError.message}`);
+        return;
+      }
+      console.log('✅ Transactions table access test passed');
+      
+      // Test 3: Check if user has any transactions
+      console.log('🔍 Test 3: Checking user transactions...');
+      const { data: userTransactions, error: userError } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('user_email', user?.email)
+        .limit(5);
+      
+      if (userError) {
+        console.error('❌ User transactions test failed:', userError);
+        showFeedback('error', 'Query Error', `User transactions query failed: ${userError.message}`);
+        return;
+      }
+      
+      console.log('✅ User transactions test passed');
+      console.log('📊 Found transactions for user:', userTransactions?.length || 0);
+      
+      if (userTransactions && userTransactions.length > 0) {
+        console.log('📋 Sample user transaction:', userTransactions[0]);
+        showFeedback('success', 'Database OK', `Found ${userTransactions.length} transactions. Check console for details.`);
+      } else {
+        console.log('⚠️ No transactions found for user - this might be normal if user is new');
+        showFeedback('info', 'No Data', 'No transactions found for this user. This is normal for new users.');
+      }
+      
+    } catch (error) {
+      console.error('❌ Database debug failed:', error);
+      showFeedback('error', 'Debug Error', `Database debug failed: ${error.message}`);
     }
   };
 
@@ -488,6 +638,11 @@ export default function Dashboard() {
                   </Link>
                 )}
 
+                <Button variant="ghost" size="sm" onClick={debugDatabaseConnection} className="text-gray-600">
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Debug DB
+                </Button>
+
                 <Button variant="ghost" size="sm" onClick={() => setIsAccountModalOpen(true)} className="text-gray-600">
                   <UserIcon className="w-4 h-4 mr-2" />
                   Account
@@ -557,6 +712,18 @@ export default function Dashboard() {
                           </Button>
                         </Link>
                       )}
+                      
+                      <Button 
+                        variant="outline" 
+                        onClick={() => {
+                          debugDatabaseConnection();
+                          setIsMobileMenuOpen(false);
+                        }} 
+                        className="justify-start text-blue-600 border-blue-200"
+                      >
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Debug Database
+                      </Button>
                       
                       <Button 
                         variant="ghost" 
@@ -750,22 +917,6 @@ export default function Dashboard() {
                 onClick={handleWithdrawClick}
                 isLoading={isWithdrawalLoading}
               />
-              
-              {/* Debug section for withdrawal option */}
-              <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-gray-600">Withdrawal Option: <span className="font-medium text-blue-600">{currentWithdrawalOption}</span></span>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={refreshAdminSettings}
-                    className="h-6 px-2 text-xs"
-                  >
-                    <RefreshCw className="w-3 h-3 mr-1" />
-                    Refresh
-                  </Button>
-                </div>
-              </div>
             </div>
 
             {appConfig.features.showInvestmentPlans && (
@@ -976,7 +1127,16 @@ export default function Dashboard() {
         onClose={() => setIsWalletRejectedModalOpen(false)}
       />
       
-      {/* WalletValidated modal is removed as per the new flow, directly opens WithdrawalModal */}
+      <WalletValidated
+        isOpen={isWalletValidatedModalOpen}
+        onClose={() => setIsWalletValidatedModalOpen(false)}
+        user={user}
+        onProceed={() => {
+          setIsWalletValidatedModalOpen(false);
+          setIsWithdrawalPreValidated(true);
+          setIsWithdrawalModalOpen(true);
+        }}
+      />
 
       {/* App 2 Specific Modals */}
       {appConfig.id === 'app2' && (
@@ -1016,11 +1176,13 @@ export default function Dashboard() {
       <AllTransactionsModal
         isOpen={isAllTransactionsModalOpen}
         onClose={() => setIsAllTransactionsModalOpen(false)}
+        user={user}
       />
       
       <PendingTransactionsModal
         isOpen={isPendingTransactionsModalOpen}
         onClose={() => setIsPendingTransactionsModalOpen(false)}
+        user={user}
       />
       
       <FeedbackModal

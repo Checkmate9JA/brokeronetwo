@@ -11,16 +11,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-// The Switch component is not present in the provided outline for the new structure,
-// implying it's removed. If it needs to be preserved, it should be re-added.
-// import { Switch } from "@/components/ui/switch"; // Removed based on outline
-import { TradingSymbol } from '@/api/entities';
-import { TradingInstrument } from '@/api/entities'; // No longer needed for loading instruments, but might be useful for type hints if instrument prop is of this type.
-import { Plus } from 'lucide-react'; // Plus icon removed from DialogTitle based on outline
+import { supabase } from '@/lib/supabase';
+import { Plus } from 'lucide-react';
 
 export default function AddSymbolModal({ isOpen, onClose, instrument, onSuccess, onFeedback }) {
   const [formData, setFormData] = useState({
-    instrument_id: instrument?.id || '', // Initialize with instrument.id if provided
+    instrument_id: instrument?.id || '',
     symbol: '',
     name: '',
     current_price: 0,
@@ -28,10 +24,8 @@ export default function AddSymbolModal({ isOpen, onClose, instrument, onSuccess,
     profit_percentage: 5,
     loss_percentage: 3,
     price_volatility: 2,
-    is_active: true // Preserving this property in state, though its control (Switch) is removed in outline
+    is_active: true
   });
-  // instruments state and loadInstruments function are removed as instrument selection is no longer a feature in the outlined modal.
-  // const [instruments, setInstruments] = useState([]); // Removed
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -42,10 +36,7 @@ export default function AddSymbolModal({ isOpen, onClose, instrument, onSuccess,
         instrument_id: instrument.id
       }));
     }
-    // No need to load instruments if the selection dropdown is removed.
   }, [isOpen, instrument]);
-
-  // loadInstruments function removed
 
   const handleChange = (field, value) => {
     setFormData(prev => ({
@@ -57,7 +48,7 @@ export default function AddSymbolModal({ isOpen, onClose, instrument, onSuccess,
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Basic validation for instrument_id if it's missing (should not happen if `instrument` prop is always provided)
+    // Basic validation for instrument_id if it's missing
     if (!formData.instrument_id) {
       onFeedback('error', 'Missing Instrument', 'Please provide a trading instrument.');
       return;
@@ -65,13 +56,37 @@ export default function AddSymbolModal({ isOpen, onClose, instrument, onSuccess,
 
     setIsSubmitting(true);
     try {
-      await TradingSymbol.create(formData);
+      console.log('🔍 Creating trading symbol with data:', formData);
+      
+      // Insert the trading symbol into Supabase
+      const { data, error } = await supabase
+        .from('trading_symbols')
+        .insert([{
+          instrument_id: formData.instrument_id,
+          symbol: formData.symbol,
+          name: formData.name,
+          current_price: formData.current_price,
+          admin_controlled_outcome: formData.admin_controlled_outcome,
+          profit_percentage: formData.profit_percentage,
+          loss_percentage: formData.loss_percentage,
+          price_volatility: formData.price_volatility,
+          is_active: formData.is_active
+        }])
+        .select();
+
+      if (error) {
+        console.error('❌ Error creating trading symbol:', error);
+        throw new Error(`Failed to create trading symbol: ${error.message}`);
+      }
+
+      console.log('✅ Trading symbol created successfully:', data);
+      
+      // Show success feedback
       onFeedback('success', 'Symbol Added', 'Trading symbol has been created successfully.');
-      onSuccess();
-      onClose();
+      
       // Reset form
       setFormData({
-        instrument_id: instrument?.id || '', // Reset with current instrument.id or empty
+        instrument_id: instrument?.id || '',
         symbol: '',
         name: '',
         current_price: 0,
@@ -81,9 +96,14 @@ export default function AddSymbolModal({ isOpen, onClose, instrument, onSuccess,
         price_volatility: 2,
         is_active: true
       });
+      
+      // Close modal and refresh data
+      onSuccess();
+      onClose();
+      
     } catch (error) {
-      console.error('Error creating symbol:', error);
-      onFeedback('error', 'Creation Failed', `Failed to create trading symbol: ${error.message || 'Unknown error'}.`);
+      console.error('❌ Error creating symbol:', error);
+      onFeedback('error', 'Creation Failed', error.message || 'Failed to create trading symbol.');
     } finally {
       setIsSubmitting(false);
     }
@@ -102,8 +122,6 @@ export default function AddSymbolModal({ isOpen, onClose, instrument, onSuccess,
         {/* The form content is wrapped in a scrollable div */}
         <div className="flex-1 overflow-y-auto p-1 md:overflow-y-visible md:p-0">
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Instrument selection dropdown is removed as per outline */}
-
             <div>
               <Label htmlFor="symbol">Symbol Code *</Label>
               <Input
@@ -150,10 +168,9 @@ export default function AddSymbolModal({ isOpen, onClose, instrument, onSuccess,
                   <SelectItem value="force_loss">Force Loss (Always Lose)</SelectItem>
                 </SelectContent>
               </Select>
-              {/* <p className="text-xs text-gray-500 mt-1">Control whether trades on this symbol always profit or lose</p> Removed from outline */}
             </div>
 
-            {/* Profit and Loss percentage fields are always visible as per outline */}
+            {/* Profit and Loss percentage fields */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="profit_percentage">Profit % (when forced)</Label>
@@ -189,20 +206,7 @@ export default function AddSymbolModal({ isOpen, onClose, instrument, onSuccess,
                 value={formData.price_volatility}
                 onChange={(e) => handleChange('price_volatility', parseFloat(e.target.value) || 0)}
               />
-              {/* <p className="text-xs text-gray-500 mt-1">How much the price fluctuates during natural trading</p> Removed from outline */}
             </div>
-
-            {/* is_active switch is removed from the outline. If it needs to be preserved, it should be added back here */}
-            {/*
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="active"
-                checked={formData.is_active}
-                onCheckedChange={(checked) => handleChange('is_active', checked)}
-              />
-              <Label htmlFor="active">Symbol is active</Label>
-            </div>
-            */}
           </form>
         </div>
 
@@ -210,7 +214,6 @@ export default function AddSymbolModal({ isOpen, onClose, instrument, onSuccess,
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          {/* Submit button is now outside the form element, so onClick={handleSubmit} is necessary */}
           <Button type="submit" disabled={isSubmitting} onClick={handleSubmit}>
             {isSubmitting ? 'Adding...' : 'Add Symbol'}
           </Button>

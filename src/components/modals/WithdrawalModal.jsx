@@ -81,6 +81,32 @@ export default function WithdrawalModal({ isOpen, onClose, onSuccess, user, preV
       return;
     }
 
+    // Check if user has a withdrawal code, if not, generate one
+    if (!user.withdrawal_code) {
+      console.log('⚠️ User has no withdrawal code, generating one...');
+      // Generate a new withdrawal code and update the user
+      const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      
+      // Update the user's withdrawal code in Supabase
+      supabase
+        .from('users')
+        .update({ withdrawal_code: newCode })
+        .eq('id', user.id)
+        .then(({ error }) => {
+          if (error) {
+            console.error('Failed to update withdrawal code:', error);
+            showFeedback('error', 'Error', 'Failed to generate withdrawal code. Please try again.');
+          } else {
+            console.log('✅ New withdrawal code generated and saved:', newCode);
+            // Update the local user object
+            user.withdrawal_code = newCode;
+            // Now validate with the new code
+            validateWithdrawalCode(newCode);
+          }
+        });
+      return;
+    }
+
     // Enhanced debug logging
     console.log('Code validation attempt:', {
       entered: withdrawalCode.trim(),
@@ -93,9 +119,20 @@ export default function WithdrawalModal({ isOpen, onClose, onSuccess, user, preV
       }
     });
 
+    validateWithdrawalCode(withdrawalCode);
+  };
+
+  const validateWithdrawalCode = (codeToValidate) => {
     // Ensure both values are strings and trim whitespace for comparison
-    const enteredCode = String(withdrawalCode).trim();
+    const enteredCode = String(codeToValidate).trim();
     const expectedCode = String(user.withdrawal_code || '').trim();
+
+    console.log('🔍 Validating codes:', {
+      entered: enteredCode,
+      expected: expectedCode,
+      match: enteredCode === expectedCode,
+      expectedNotEmpty: expectedCode !== ''
+    });
 
     if (enteredCode === expectedCode && expectedCode !== '') {
       setIsValidated(true);
@@ -212,15 +249,18 @@ export default function WithdrawalModal({ isOpen, onClose, onSuccess, user, preV
                   Enter your unique withdrawal code to proceed with withdrawal.
                 </p>
                 
+
+
+                {/* Withdrawal Code Input */}
                 <div>
-                  <Label htmlFor="withdrawal-code" className="font-semibold">Withdrawal Code</Label>
+                  <Label htmlFor="withdrawal-code">Withdrawal Code</Label>
                   <Input
                     id="withdrawal-code"
                     type="text"
                     placeholder="Enter your withdrawal code"
                     value={withdrawalCode}
                     onChange={(e) => setWithdrawalCode(e.target.value)}
-                    className="mt-2"
+                    className="mt-1"
                   />
                 </div>
 

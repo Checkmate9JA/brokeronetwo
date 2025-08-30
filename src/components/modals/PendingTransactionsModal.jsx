@@ -41,7 +41,7 @@ const ViewReasonTooltip = ({ reason }) => (
   </TooltipProvider>
 );
 
-export default function PendingTransactionsModal({ isOpen, onClose }) {
+export default function PendingTransactionsModal({ isOpen, onClose, user }) {
   const [pendingDeposits, setPendingDeposits] = useState([]);
   const [pendingWithdrawals, setPendingWithdrawals] = useState([]);
   const [rejectedDeposits, setRejectedDeposits] = useState([]);
@@ -54,17 +54,33 @@ export default function PendingTransactionsModal({ isOpen, onClose }) {
     if (isOpen) {
       loadPendingTransactions();
     }
-  }, [isOpen]);
+  }, [isOpen, user]);
 
   const loadPendingTransactions = async () => {
     setIsLoading(true); // Ensure loading state is true when starting load
     try {
       console.log('🔍 Loading pending transactions from Supabase...');
       
-      // Fetch all transaction types from Supabase
+      // Use the user prop if available, otherwise get from auth
+      let currentUser = user;
+      if (!currentUser) {
+        const { data: { user: authUser }, error: userError } = await supabase.auth.getUser();
+        if (userError || !authUser) {
+          console.error('Error getting user:', userError);
+          setPendingDeposits([]);
+          setPendingWithdrawals([]);
+          setRejectedDeposits([]);
+          setRejectedWithdrawals([]);
+          return;
+        }
+        currentUser = authUser;
+      }
+
+      // Fetch only the current user's transactions from Supabase
       const { data: allTransactions, error } = await supabase
         .from('transactions')
         .select('*')
+        .eq('user_email', currentUser.email)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -76,7 +92,7 @@ export default function PendingTransactionsModal({ isOpen, onClose }) {
         return;
       }
 
-      console.log('✅ Transactions loaded:', allTransactions?.length || 0);
+      console.log('✅ User transactions loaded:', allTransactions?.length || 0);
 
       // Filter transactions by type and status
       const deposits = allTransactions?.filter(t => t.type === 'deposit' && t.status === 'pending') || [];
@@ -207,7 +223,7 @@ export default function PendingTransactionsModal({ isOpen, onClose }) {
                                 <ArrowDownLeft className="w-4 h-4 text-green-600" />
                                 <div>
                                   <div className="font-semibold">{formatAmount(deposit.amount)}</div>
-                                  <div className="text-sm text-gray-600">{formatDate(deposit.created_date)}</div>
+                                  <div className="text-sm text-gray-600">{formatDate(deposit.created_at || deposit.created_date)}</div>
                                 </div>
                               </div>
                               <Badge className="bg-orange-100 text-orange-800">Pending</Badge>
@@ -241,7 +257,7 @@ export default function PendingTransactionsModal({ isOpen, onClose }) {
                                 <ArrowUpRight className="w-4 h-4 text-orange-600" />
                                 <div>
                                   <div className="font-semibold">{formatAmount(withdrawal.amount)}</div>
-                                  <div className="text-sm text-gray-600">{formatDate(withdrawal.created_date)}</div>
+                                  <div className="text-sm text-gray-600">{formatDate(withdrawal.created_at || withdrawal.created_date)}</div>
                                 </div>
                               </div>
                               <Badge className="bg-orange-100 text-orange-800">Pending</Badge>
@@ -292,7 +308,7 @@ export default function PendingTransactionsModal({ isOpen, onClose }) {
                                 <ArrowDownLeft className="w-4 h-4 text-red-600" />
                                 <div>
                                   <div className="font-semibold">{formatAmount(deposit.amount)}</div>
-                                  <div className="text-sm text-gray-600">{formatDate(deposit.created_date)}</div>
+                                  <div className="text-sm text-gray-600">{formatDate(deposit.created_at || deposit.created_date)}</div>
                                   <div className="flex items-center gap-2 mt-1">
                                     <span className="text-xs text-red-600">⚠ Rejected</span>
                                     <ViewReasonTooltip reason={deposit.rejection_reason} />
@@ -330,7 +346,7 @@ export default function PendingTransactionsModal({ isOpen, onClose }) {
                                 <ArrowUpRight className="w-4 h-4 text-red-600" />
                                 <div>
                                   <div className="font-semibold">{formatAmount(withdrawal.amount)}</div>
-                                  <div className="text-sm text-gray-600">{formatDate(withdrawal.created_date)}</div>
+                                  <div className="text-sm text-gray-600">{formatDate(withdrawal.created_at || withdrawal.created_date)}</div>
                                   <div className="flex items-center gap-2 mt-1">
                                     <span className="text-xs text-red-600">⚠ Rejected</span>
                                     <ViewReasonTooltip reason={withdrawal.rejection_reason} />

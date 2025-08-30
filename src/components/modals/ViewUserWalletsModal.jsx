@@ -29,7 +29,7 @@ export default function ViewUserWalletsModal({ isOpen, onClose, user }) {
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false); // State for "Clear All" confirmation modal
   const [isConfirmingSingleDelete, setIsConfirmingSingleDelete] = useState(false); // New state for single delete confirmation
   const [submissionToDelete, setSubmissionToDelete] = useState(null); // New state to hold submission for single delete
-
+  
   useEffect(() => {
     if (isOpen && user) {
       loadSubmissions();
@@ -133,27 +133,106 @@ export default function ViewUserWalletsModal({ isOpen, onClose, user }) {
     setIsConfirmingDelete(true); // Open the "Clear All" confirmation modal
   };
 
+  // Enhanced delete function with verification
+  const deleteSubmissionWithVerification = async (submissionId) => {
+    try {
+      console.log('🗑️ Starting deletion process for submission:', submissionId);
+      
+      // First, verify the submission exists
+      const { data: existingSubmission, error: fetchError } = await supabase
+        .from('wallet_submissions')
+        .select('id, wallet_name')
+        .eq('id', submissionId)
+        .single();
+      
+      if (fetchError) {
+        console.error('❌ Error fetching submission for deletion:', fetchError);
+        throw new Error(`Submission not found: ${fetchError.message}`);
+      }
+      
+      if (!existingSubmission) {
+        throw new Error('Submission not found');
+      }
+      
+      console.log('✅ Submission found, proceeding with deletion:', existingSubmission);
+      
+      // Attempt deletion
+      const { error: deleteError } = await supabase
+        .from('wallet_submissions')
+        .delete()
+        .eq('id', submissionId);
+      
+      if (deleteError) {
+        console.error('❌ Delete operation failed:', deleteError);
+        throw new Error(`Delete failed: ${deleteError.message}`);
+      }
+      
+      console.log('✅ Delete operation completed');
+      
+      // Verify deletion
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('wallet_submissions')
+        .select('id')
+        .eq('id', submissionId);
+      
+      if (verifyError) {
+        console.error('❌ Verification query failed:', verifyError);
+        // Don't throw here, as the delete might have succeeded
+      } else if (verifyData && verifyData.length > 0) {
+        console.error('⚠️ Submission still exists after deletion:', verifyData);
+        throw new Error('Deletion verification failed - submission still exists');
+      } else {
+        console.log('✅ Deletion verified successfully');
+      }
+      
+      return true;
+      
+    } catch (error) {
+      console.error('❌ Delete verification failed:', error);
+      throw error;
+    }
+  };
+
   const confirmClearAll = async () => {
     setIsConfirmingDelete(false); // Close "Clear All" confirmation modal
     try {
       const submissionIds = submissions.map(s => s.id);
       if (submissionIds.length > 0) {
-        const { error: deleteError } = await supabase
-          .from('wallet_submissions')
-          .delete()
-          .in('id', submissionIds);
+        console.log('🗑️ Attempting to delete submissions:', submissionIds);
         
-        if (deleteError) {
-          throw new Error(`Failed to delete submissions: ${deleteError.message}`);
+        // Delete submissions one by one with verification
+        let successCount = 0;
+        let errorCount = 0;
+        
+        for (const submissionId of submissionIds) {
+          try {
+            await deleteSubmissionWithVerification(submissionId);
+            successCount++;
+          } catch (error) {
+            console.error(`❌ Failed to delete submission ${submissionId}:`, error);
+            errorCount++;
+          }
         }
-        showFeedback('success', 'Cleared!', 'All submissions for this user have been deleted.');
-        loadSubmissions(); // Reload the submissions after deletion
+        
+        if (errorCount === 0) {
+          console.log('✅ All submissions deleted successfully');
+          showFeedback('success', 'Cleared!', 'All submissions for this user have been deleted.');
+          setSubmissions([]); // Clear local state
+        } else if (successCount > 0) {
+          console.log(`⚠️ Partial deletion: ${successCount} succeeded, ${errorCount} failed`);
+          showFeedback('warning', 'Partial Deletion', `${successCount} submissions deleted, ${errorCount} failed. Please try again.`);
+          // Reload to show current state
+          setTimeout(() => loadSubmissions(), 500);
+        } else {
+          console.log('❌ All deletions failed');
+          showFeedback('error', 'Delete Failed', 'Failed to delete any submissions. Please try again.');
+        }
       } else {
         showFeedback('info', 'No Submissions', 'There are no submissions to clear for this user.');
       }
     } catch (error) {
       console.error('Failed to clear all submissions:', error);
-      showFeedback('error', 'Delete Error', 'An error occurred while deleting all submissions.');
+      showFeedback('error', 'Delete Error', `An error occurred while deleting all submissions: ${error.message}`);
     }
   };
 
@@ -166,19 +245,24 @@ export default function ViewUserWalletsModal({ isOpen, onClose, user }) {
     if (!submissionToDelete) return; // Should not happen if modal is opened correctly
 
     try {
-              const { error: deleteError } = await supabase
-          .from('wallet_submissions')
-          .delete()
-          .eq('id', submissionToDelete.id);
-        
-        if (deleteError) {
-          throw new Error(`Failed to delete submission: ${deleteError.message}`);
-        }
+      console.log('🗑️ Attempting to delete submission:', submissionToDelete.id);
+      
+      await deleteSubmissionWithVerification(submissionToDelete.id);
+      
+      console.log('✅ Successfully deleted submission from database');
+      
+      // Remove from local state immediately
       setSubmissions(prev => prev.filter(s => s.id !== submissionToDelete.id));
       showFeedback('success', 'Deleted!', 'Wallet submission has been deleted.');
+      
+      // Verify deletion by attempting to reload
+      setTimeout(() => {
+        loadSubmissions();
+      }, 500);
+      
     } catch (error) {
       console.error('Error deleting wallet submission:', error);
-      showFeedback('error', 'Delete Error', 'Failed to delete wallet submission.');
+      showFeedback('error', 'Delete Error', `Failed to delete wallet submission: ${error.message}`);
     } finally {
       setIsConfirmingSingleDelete(false); // Close modal
       setSubmissionToDelete(null); // Clear target
@@ -284,23 +368,6 @@ export default function ViewUserWalletsModal({ isOpen, onClose, user }) {
     </Button>
   );
 
-  const testSupabaseConnection = async () => {
-    try {
-      console.log('🧪 Testing Supabase connection...');
-      const { data, error } = await supabase.from('wallet_submissions').select('*').limit(1);
-      if (error) {
-        console.error('❌ Database test failed:', error);
-        showFeedback('error', 'Database Error', `Failed to fetch data: ${error.message}`);
-      } else {
-        console.log('✅ Database test successful:', data);
-        showFeedback('success', 'Database OK', `Successfully fetched ${data.length} wallet submissions.`);
-      }
-    } catch (error) {
-      console.error('❌ Unexpected error during test:', error);
-      showFeedback('error', 'Database Error', `An unexpected error occurred: ${error.message}`);
-    }
-  };
-
   return (
     <>
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -313,14 +380,6 @@ export default function ViewUserWalletsModal({ isOpen, onClose, user }) {
             <p className="text-sm text-gray-500 mt-1">{user?.email}</p>
           </div>
           <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => testSupabaseConnection()}
-              title="Test database connection"
-            >
-              Test DB
-            </Button>
             {submissions.length > 0 && (
               <Button variant="destructive" size="sm" onClick={handleClearAll}>
                 Clear All

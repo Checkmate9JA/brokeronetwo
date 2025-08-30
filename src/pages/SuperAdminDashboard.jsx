@@ -40,7 +40,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { User } from '@/api/entities';
+import { supabase } from '@/lib/supabase';
 import AddNewUserModal from '../components/modals/AddNewUserModal';
 import EditUserModal from '../components/modals/EditUserModal';
 import { useApp } from '../components/AppProvider';
@@ -61,6 +61,8 @@ export default function SuperAdminDashboard() {
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [appCreatorId, setAppCreatorId] = useState(null);
 
@@ -99,24 +101,69 @@ export default function SuperAdminDashboard() {
 
   const loadData = async () => {
     setIsLoading(true);
+    setError(null); // Clear any previous errors
+    setSuccess(null); // Clear any previous success messages
     try {
-      const [user, allUsers] = await Promise.all([
-        User.me(),
-        User.list()
-      ]);
-
-      setCurrentUser(user);
-      setUsers(allUsers);
+      // Get current user from Supabase auth
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError) {
+        console.error('Auth error:', authError);
+        setError(`Authentication error: ${authError.message}`);
+        return;
+      }
+      
+      if (!authUser) {
+        setError('No authenticated user');
+        return;
+      }
+      
+      // Get current user profile from users table
+      const { data: currentUserProfile, error: profileError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', authUser.email)
+        .single();
+      
+      if (profileError) {
+        console.error('Profile fetch error:', profileError);
+        // Still set the auth user as current user
+        setCurrentUser(authUser);
+      } else {
+        setCurrentUser(currentUserProfile);
+      }
+      
+      // Fetch all users
+      const { data: users, error: usersError } = await supabase
+        .from('users')
+        .select('*')
+        .order('created_at', { ascending: true, nullsLast: true });
+      
+      if (usersError) {
+        console.error('Users fetch error:', usersError);
+        setError(`Failed to fetch users: ${usersError.message}`);
+        return;
+      }
+      
+      setUsers(users || []);
       
       // Find the app creator (usually the first user created or with a specific flag)
       // For now, we'll assume the creator has superadmin role and was created first
-      const sortedUsers = [...allUsers].sort((a, b) => new Date(a.created_date) - new Date(b.created_date));
+      const sortedUsers = [...(users || [])].sort((a, b) => {
+        const dateA = a.created_at || a.created_date || new Date(0);
+        const dateB = b.created_at || b.created_date || new Date(0);
+        return new Date(dateA) - new Date(dateB);
+      });
       const creator = sortedUsers.find(u => u.role === 'superadmin') || sortedUsers[0];
       if (creator) {
         setAppCreatorId(creator.id);
       }
+      
+      console.log(`✅ Successfully loaded ${users?.length || 0} users from Supabase`);
+      setSuccess(`Successfully loaded ${users?.length || 0} users from Supabase`);
     } catch (error) {
       console.error('Error loading data:', error);
+      setError(`Unexpected error: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -144,7 +191,14 @@ export default function SuperAdminDashboard() {
     }
 
     try {
-      await User.update(user.id, { role: newRole });
+      const { error } = await supabase
+        .from('users')
+        .update({ role: newRole })
+        .eq('id', user.id);
+
+      if (error) {
+        throw error;
+      }
       loadData();
       setFeedback({
         isOpen: true,
@@ -156,7 +210,7 @@ export default function SuperAdminDashboard() {
       console.error('Error changing user role:', error);
       
       // Handle specific error messages
-      if (error.response?.data?.message?.includes('creator')) {
+      if (error.message?.includes('creator')) {
         setFeedback({
           isOpen: true,
           type: 'error',
@@ -187,7 +241,14 @@ export default function SuperAdminDashboard() {
     }
 
     try {
-      await User.update(user.id, { is_suspended: !user.is_suspended });
+      const { error } = await supabase
+        .from('users')
+        .update({ is_suspended: !user.is_suspended })
+        .eq('id', user.id);
+
+      if (error) {
+        throw error;
+      }
       loadData();
       setFeedback({
         isOpen: true,
@@ -220,7 +281,14 @@ export default function SuperAdminDashboard() {
 
     if (window.confirm(`Are you sure you want to delete ${user.full_name}? This action cannot be undone.`)) {
       try {
-        await User.delete(user.id);
+        const { error } = await supabase
+          .from('users')
+          .delete()
+          .eq('id', user.id);
+
+        if (error) {
+          throw error;
+        }
         loadData();
         setFeedback({
           isOpen: true,
@@ -262,7 +330,10 @@ export default function SuperAdminDashboard() {
   // New logout handler
   const handleLogout = async () => {
     try {
-      await User.logout();
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        throw error;
+      }
       window.location.reload(); // Reload the page after successful logout
     } catch (error) {
       console.error('Error logging out:', error);
@@ -431,16 +502,53 @@ export default function SuperAdminDashboard() {
               <h2 className="text-xl font-bold text-gray-900">User Management</h2>
               <p className="text-sm text-gray-500 hidden md:block">Manage all system users and their roles</p>
             </div>
-            {/* Mobile Add User Button */}
-            <Button onClick={() => setIsAddUserModalOpen(true)} className="bg-green-600 hover:bg-green-700 md:hidden" size="icon">
-              <UserPlus className="w-4 h-4" />
-            </Button>
-            {/* Desktop Add User Button */}
-            <Button onClick={() => setIsAddUserModalOpen(true)} className="bg-green-600 hover:bg-green-700 hidden md:flex">
-              <UserPlus className="w-4 h-4 mr-2" />
-              Add New User
-            </Button>
+            <div className="flex items-center gap-2">
+              {/* Refresh Button */}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={loadData}
+                disabled={isLoading}
+                className="text-blue-600 border-blue-200 hover:bg-blue-50"
+              >
+                <RotateCcw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+              {/* Mobile Add User Button */}
+              <Button onClick={() => setIsAddUserModalOpen(true)} className="bg-green-600 hover:bg-green-700 md:hidden" size="icon">
+                <UserPlus className="w-4 h-4" />
+              </Button>
+              {/* Desktop Add User Button */}
+              <Button onClick={() => setIsAddUserModalOpen(true)} className="bg-green-600 hover:bg-green-700 hidden md:flex">
+                <UserPlus className="w-4 h-4 mr-2" />
+                Add New User
+              </Button>
+            </div>
           </div>
+
+          {/* Error Display */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                <h3 className="text-sm font-medium text-red-800">Error Loading Users</h3>
+              </div>
+              <p className="mt-1 text-sm text-red-700">{error}</p>
+              <Button 
+                onClick={() => {
+                  setError(null);
+                  loadData();
+                }} 
+                variant="outline" 
+                size="sm" 
+                className="mt-2 text-red-600 border-red-200 hover:bg-red-50"
+              >
+                Retry
+              </Button>
+            </div>
+          )}
+
+
 
           {/* Search Bar */}
           <div className="mb-6">
@@ -457,177 +565,217 @@ export default function SuperAdminDashboard() {
 
           {/* Desktop Table View */}
           <div className="hidden md:block overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">User</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Role</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Status</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Balance</th>
-                  <th className="text-right py-3 px-4 font-semibold text-gray-700">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredUsers.map((user) => (
-                  <tr key={user.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                          {getRoleIcon(user.role)}
-                        </div>
-                        <div>
-                          <div className="font-medium text-gray-900">{user.full_name}</div>
-                          <div className="text-sm text-gray-500">{user.email}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-4 px-4">
-                      {getRoleBadge(user.role)}
-                    </td>
-                    <td className="py-4 px-4">
-                      {user.is_suspended ? (
-                        <Badge variant="destructive">Suspended</Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-green-700 border-green-200">Active</Badge>
-                      )}
-                    </td>
-                    <td className="py-4 px-4">
-                      <span className="font-mono text-sm">
-                        ${(user.total_balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-2 justify-end">
-                        <Button variant="ghost" size="icon" onClick={() => handleEditUser(user)}>
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleSuspendUser(user)}
-                          disabled={user.id === appCreatorId}
-                        >
-                          {user.is_suspended ? (
-                            <Unlock className="w-4 h-4 text-green-600" />
-                          ) : (
-                            <Lock className="w-4 h-4 text-orange-600" />
-                          )}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteUser(user)}
-                          disabled={user.id === appCreatorId}
-                          title={user.id === appCreatorId ? "Cannot delete app creator" : "Delete user"}
-                        >
-                          <Trash2 className="w-4 h-4 text-red-600" />
-                        </Button>
-                        <Select
-                          value={user.role || 'user'}
-                          onValueChange={(newRole) => handleRoleChange(user, newRole)}
-                          disabled={user.id === appCreatorId}
-                        >
-                          <SelectTrigger className="w-32">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="user">User</SelectItem>
-                            <SelectItem value="admin">Admin</SelectItem>
-                            <SelectItem value="superadmin">Super Admin</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </td>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Loading users...</p>
+                </div>
+              </div>
+            ) : users.length === 0 ? (
+              <div className="text-center py-12">
+                <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No users found</h3>
+                <p className="text-gray-500 mb-4">No users have been created yet.</p>
+                <Button onClick={() => setIsAddUserModalOpen(true)} className="bg-green-600 hover:bg-green-700">
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Add First User
+                </Button>
+              </div>
+            ) : (
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">User</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Role</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Status</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Balance</th>
+                    <th className="text-right py-3 px-4 font-semibold text-gray-700">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filteredUsers.map((user) => (
+                    <tr key={user.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                            {getRoleIcon(user.role)}
+                          </div>
+                          <div>
+                            <div className="font-medium text-gray-900">{user.full_name}</div>
+                            <div className="text-sm text-gray-500">{user.email}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4">
+                        {getRoleBadge(user.role)}
+                      </td>
+                      <td className="py-4 px-4">
+                        {user.is_suspended ? (
+                          <Badge variant="destructive">Suspended</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-green-700 border-green-200">Active</Badge>
+                        )}
+                      </td>
+                      <td className="py-4 px-4">
+                        <span className="font-mono text-sm">
+                          ${(user.total_balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-2 justify-end">
+                          <Button variant="ghost" size="icon" onClick={() => handleEditUser(user)}>
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleSuspendUser(user)}
+                            disabled={user.id === appCreatorId}
+                          >
+                            {user.is_suspended ? (
+                              <Unlock className="w-4 h-4 text-green-600" />
+                            ) : (
+                              <Lock className="w-4 h-4 text-orange-600" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteUser(user)}
+                            disabled={user.id === appCreatorId}
+                            title={user.id === appCreatorId ? "Cannot delete app creator" : "Delete user"}
+                          >
+                            <Trash2 className="w-4 h-4 text-red-600" />
+                          </Button>
+                          <Select
+                            value={user.role || 'user'}
+                            onValueChange={(newRole) => handleRoleChange(user, newRole)}
+                            disabled={user.id === appCreatorId}
+                          >
+                            <SelectTrigger className="w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="user">User</SelectItem>
+                              <SelectItem value="admin">Admin</SelectItem>
+                              <SelectItem value="superadmin">Super Admin</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
 
           {/* Mobile Card View */}
           <div className="md:hidden space-y-4">
-            {filteredUsers.map((user) => (
-              <Card key={user.id} className="p-4 bg-gray-50 relative overflow-hidden">
-                {user.is_suspended && (
-                  <Badge variant="destructive" className="absolute top-2 right-2 z-10">Suspended</Badge>
-                )}
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-                      {getRoleIcon(user.role)}
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Loading users...</p>
+                </div>
+              </div>
+            ) : users.length === 0 ? (
+              <div className="text-center py-12">
+                <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No users found</h3>
+                <p className="text-gray-500 mb-4">No users have been created yet.</p>
+                <Button onClick={() => setIsAddUserModalOpen(true)} className="bg-green-600 hover:bg-green-700">
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Add First User
+                </Button>
+              </div>
+            ) : (
+              filteredUsers.map((user) => (
+                <Card key={user.id} className="p-4 bg-gray-50 relative overflow-hidden">
+                  {user.is_suspended && (
+                    <Badge variant="destructive" className="absolute top-2 right-2 z-10">Suspended</Badge>
+                  )}
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+                        {getRoleIcon(user.role)}
+                      </div>
+                      <div>
+                        <div className="font-medium text-gray-900">{user.full_name}</div>
+                        <div className="text-sm text-gray-500">{user.email}</div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <div className="text-xs text-gray-500">Role</div>
+                      <div className="mt-1">{getRoleBadge(user.role)}</div>
                     </div>
                     <div>
-                      <div className="font-medium text-gray-900">{user.full_name}</div>
-                      <div className="text-sm text-gray-500">{user.email}</div>
+                      <div className="text-xs text-gray-500">Balance</div>
+                      <div className="font-mono text-sm font-semibold mt-1">
+                        ${(user.total_balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
                     </div>
                   </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <div className="text-xs text-gray-500">Role</div>
-                    <div className="mt-1">{getRoleBadge(user.role)}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-gray-500">Balance</div>
-                    <div className="font-mono text-sm font-semibold mt-1">
-                      ${(user.total_balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
-                  </div>
-                </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" size="sm" onClick={() => handleEditUser(user)} className="flex-1 min-w-[100px]">
-                    <Edit className="w-3 h-3 mr-1" />
-                    Edit
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleSuspendUser(user)}
-                    className="flex-1 min-w-[100px]"
-                    disabled={user.id === appCreatorId}
-                  >
-                    {user.is_suspended ? (
-                      <>
-                        <Unlock className="w-3 h-3 mr-1" />
-                        Unsuspend
-                      </>
-                    ) : (
-                      <>
-                        <Lock className="w-3 h-3 mr-1" />
-                        Suspend
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDeleteUser(user)}
-                    disabled={user.id === appCreatorId}
-                    className="flex-1 min-w-[100px] text-red-600 border-red-200"
-                    title={user.id === appCreatorId ? "Cannot delete app creator" : "Delete user"}
-                  >
-                    <Trash2 className="w-3 h-3 mr-1" />
-                    Delete
-                  </Button>
-                  <Select
-                    value={user.role || 'user'}
-                    onValueChange={(newRole) => handleRoleChange(user, newRole)}
-                    disabled={user.id === appCreatorId}
-                  >
-                    <SelectTrigger className="w-full mt-2"> {/* Full width on mobile */}
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="user">User</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="superadmin">Super Admin</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </Card>
-            ))}
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" size="sm" onClick={() => handleEditUser(user)} className="flex-1 min-w-[100px]">
+                      <Edit className="w-3 h-3 mr-1" />
+                      Edit
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleSuspendUser(user)}
+                      className="flex-1 min-w-[100px]"
+                      disabled={user.id === appCreatorId}
+                    >
+                      {user.is_suspended ? (
+                        <>
+                          <Unlock className="w-3 h-3 mr-1" />
+                          Unsuspend
+                        </>
+                      ) : (
+                        <>
+                          <Lock className="w-3 h-3 mr-1" />
+                          Suspend
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDeleteUser(user)}
+                      className="flex-1 min-w-[100px]"
+                      disabled={user.id === appCreatorId}
+                    >
+                      <Trash2 className="w-3 h-3 mr-1" />
+                      Delete
+                    </Button>
+                  </div>
+
+                  <div className="mt-3">
+                    <Select
+                      value={user.role || 'user'}
+                      onValueChange={(newRole) => handleRoleChange(user, newRole)}
+                      disabled={user.id === appCreatorId}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="user">User</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="superadmin">Super Admin</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </Card>
+              ))
+            )}
           </div>
         </Card>
 

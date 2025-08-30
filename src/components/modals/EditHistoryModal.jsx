@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { X, Edit } from 'lucide-react';
-import { Transaction } from '@/api/entities';
+import { supabase } from '@/lib/supabase';
 
 export default function EditHistoryModal({ isOpen, onClose, user, onSuccess }) {
   const [transactions, setTransactions] = useState([]);
@@ -42,10 +42,20 @@ export default function EditHistoryModal({ isOpen, onClose, user, onSuccess }) {
   }, [selectedTxId, transactions]);
 
   const loadTransactions = async () => {
+    if (!user?.email) return;
+    
     setIsLoading(true);
     try {
-      const data = await Transaction.filter({ user_email: user.email }, '-created_date');
-      setTransactions(data);
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('user_email', user.email)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        throw error;
+      }
+      setTransactions(data || []);
     } catch (error) {
       console.error("Failed to load transactions for user:", error);
     } finally {
@@ -58,11 +68,19 @@ export default function EditHistoryModal({ isOpen, onClose, user, onSuccess }) {
 
     setIsSubmitting(true);
     try {
-      const { id, created_by, ...updateData } = currentTx;
-      await Transaction.update(id, {
-        ...updateData,
-        amount: parseFloat(updateData.amount)
-      });
+      const { id, ...updateData } = currentTx;
+      const { error } = await supabase
+        .from('transactions')
+        .update({
+          ...updateData,
+          amount: parseFloat(updateData.amount)
+        })
+        .eq('id', id);
+
+      if (error) {
+        throw error;
+      }
+
       alert('Transaction updated successfully!');
       onSuccess();
       onClose();

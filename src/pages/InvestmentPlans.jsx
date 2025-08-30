@@ -45,10 +45,83 @@ export default function InvestmentPlans() {
   const [isInvestModalOpen, setIsInvestModalOpen] = useState(false);
   const [feedback, setFeedback] = useState({ isOpen: false, type: '', title: '', message: '' });
   const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, investment: null });
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
     loadData();
   }, []);
+
+  // Real-time countdown timer - updates every minute
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const newTime = new Date();
+      setCurrentTime(newTime);
+      
+      // Log countdown updates for debugging
+      const activeInvestments = myInvestments.filter(i => i.status === 'active');
+      if (activeInvestments.length > 0) {
+        activeInvestments.forEach(inv => {
+          const timeRemaining = calculateTimeRemaining(inv.maturity_date);
+          if (timeRemaining.days === 0 && timeRemaining.hours < 6) {
+            // console.log(`⚠️ Investment "${inv.plan_name}" matures soon: ${formatTimeRemaining(timeRemaining)}`);
+          }
+        });
+      }
+    }, 60000); // Update every minute
+
+    return () => clearInterval(timer);
+  }, [myInvestments]);
+
+  // More frequent updates for investments close to maturity (less than 1 hour remaining)
+  useEffect(() => {
+    const hasNearMaturityInvestments = myInvestments.some(investment => {
+      if (investment.status !== 'active') return false;
+      const timeRemaining = calculateTimeRemaining(investment.maturity_date);
+      return timeRemaining.days === 0 && timeRemaining.hours < 1;
+    });
+
+    if (hasNearMaturityInvestments) {
+      const frequentTimer = setInterval(() => {
+        setCurrentTime(new Date());
+      }, 10000); // Update every 10 seconds for near-maturity investments
+
+      return () => clearInterval(frequentTimer);
+    }
+  }, [myInvestments]);
+
+  // Helper function to calculate time remaining with real-time updates
+  const calculateTimeRemaining = (maturityDate) => {
+    const now = currentTime;
+    const maturity = new Date(maturityDate);
+    const timeDiff = maturity.getTime() - now.getTime();
+    
+    if (timeDiff <= 0) {
+      return { days: 0, hours: 0, minutes: 0, isExpired: true };
+    }
+    
+    const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+    
+    return { days, hours, minutes, isExpired: false };
+  };
+
+  // Helper function to format time remaining
+  const formatTimeRemaining = (timeRemaining) => {
+    if (timeRemaining.isExpired) {
+      return 'Expired';
+    }
+    
+    if (timeRemaining.days > 0) {
+      return `${timeRemaining.days} day${timeRemaining.days !== 1 ? 's' : ''}`;
+    } else if (timeRemaining.hours > 0) {
+      return `${timeRemaining.hours}h ${timeRemaining.minutes}m`;
+    } else if (timeRemaining.minutes > 0) {
+      return `${timeRemaining.minutes}m`;
+    } else {
+      return 'Less than 1m';
+    }
+  };
 
   // New helper function for showing feedback
   const showFeedback = (type, title, message) => {
@@ -58,7 +131,7 @@ export default function InvestmentPlans() {
   const loadData = async () => {
     setIsLoading(true); // Set loading true before starting data fetch
     try {
-      console.log('🔍 Loading investment data from Supabase...');
+      // console.log('🔍 Loading investment data from Supabase...');
       
       // Fetch active investment plans from Supabase
       const { data: fetchedPlans, error: plansError } = await supabase
@@ -71,7 +144,7 @@ export default function InvestmentPlans() {
         throw new Error(`Failed to fetch plans: ${plansError.message}`);
       }
       
-      console.log('✅ Investment plans loaded:', fetchedPlans?.length || 0);
+      // console.log('✅ Investment plans loaded:', fetchedPlans?.length || 0);
       setPlans(fetchedPlans || []);
       
       // Get current user from Supabase auth
@@ -90,7 +163,7 @@ export default function InvestmentPlans() {
           .single();
         
         if (profileError) {
-          console.warn('Could not fetch user profile:', profileError);
+          // console.warn('Could not fetch user profile:', profileError);
           // Use basic user info from auth
           setUser({
             id: currentUser.id,
@@ -108,7 +181,7 @@ export default function InvestmentPlans() {
           .eq('user_email', currentUser.email);
         
         if (investmentsError) {
-          console.warn('Could not fetch user investments:', investmentsError);
+          // console.warn('Could not fetch user investments:', investmentsError);
           setMyInvestments([]);
         } else {
           setMyInvestments(investments || []);
@@ -119,7 +192,7 @@ export default function InvestmentPlans() {
       }
       
     } catch (error) {
-      console.error('❌ Error loading data:', error);
+      // console.error('❌ Error loading data:', error);
       showFeedback('error', 'Data Load Error', 'Failed to load investment data. Please try again later.');
     } finally {
       setIsLoading(false);
@@ -161,7 +234,7 @@ export default function InvestmentPlans() {
         .eq('id', user.id);
       
       // Create transaction record
-      await supabase
+      const { error: transactionError } = await supabase
         .from('transactions')
         .insert({
           type: 'transfer', // Changed type to 'transfer' as per outline
@@ -169,13 +242,12 @@ export default function InvestmentPlans() {
           status: 'completed',
           description: `Investment cancelled: ${investment.plan_name} - Capital returned`, // Changed description as per outline
           user_email: user.email, // Ensure transaction is linked to user
-          created_by: user.email, // Added created_by field
         });
       
       showFeedback('success', 'Investment Cancelled', 'Capital has been returned to your trading wallet.'); // Use feedback modal
       loadData(); // Reload data to reflect changes
     } catch (error) {
-      console.error('Error cancelling investment:', error);
+      // console.error('Error cancelling investment:', error);
       showFeedback('error', 'Cancellation Failed', 'Failed to cancel investment. Please try again.'); // Use feedback modal
     } finally {
         setDeleteConfirmation({ isOpen: false, investment: null }); // Close confirmation modal regardless of success/failure
@@ -201,9 +273,11 @@ export default function InvestmentPlans() {
 
       <main className="max-w-6xl mx-auto px-6 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-8">
+          <TabsList className="grid w-full grid-cols-4 mb-8">
             <TabsTrigger value="available">Available Plans</TabsTrigger>
-            <TabsTrigger value="my-investments">My Investments ({myInvestments.filter(i => i.status === 'active').length})</TabsTrigger>
+            <TabsTrigger value="ongoing">Ongoing ({myInvestments.filter(i => i.status === 'active').length})</TabsTrigger>
+            <TabsTrigger value="matured">Matured ({myInvestments.filter(i => i.status === 'matured').length})</TabsTrigger>
+            <TabsTrigger value="cancelled">Cancelled ({myInvestments.filter(i => i.status === 'cancelled').length})</TabsTrigger>
           </TabsList>
 
           <TabsContent value="available">
@@ -271,26 +345,68 @@ export default function InvestmentPlans() {
             )}
           </TabsContent>
 
-          <TabsContent value="my-investments">
+          <TabsContent value="ongoing">
             {isLoading ? (
               <div className="text-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="mt-4 text-gray-600">Loading your investments...</p>
+                <p className="mt-4 text-gray-600">Loading your ongoing investments...</p>
               </div>
-            ) : myInvestments.length > 0 ? (
+            ) : myInvestments.filter(i => i.status === 'active').length > 0 ? (
               <div className="space-y-6">
-                {myInvestments.map((investment) => {
+                {/* Summary section */}
+                <div className="bg-white p-6 rounded-lg border border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Investment Summary</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-blue-600">{myInvestments.filter(i => i.status === 'active').length}</div>
+                      <div className="text-sm text-gray-600">Active Investments</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-600">
+                        {formatCurrency(myInvestments.filter(i => i.status === 'active').reduce((sum, inv) => sum + parseFloat(inv.amount_invested), 0))}
+                      </div>
+                      <div className="text-sm text-gray-600">Total Invested</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-purple-600">
+                        {formatCurrency(myInvestments.filter(i => i.status === 'active').reduce((sum, inv) => sum + parseFloat(inv.expected_profit), 0))}
+                      </div>
+                      <div className="text-sm text-gray-600">Expected Profit</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-orange-600">
+                        {myInvestments.filter(i => i.status === 'active').filter(inv => {
+                          const timeRemaining = calculateTimeRemaining(inv.maturity_date);
+                          return timeRemaining.days === 0 && timeRemaining.hours < 24;
+                        }).length}
+                      </div>
+                      <div className="text-sm text-gray-600">Matures Today</div>
+                    </div>
+                  </div>
+                </div>
+                
+                {myInvestments.filter(i => i.status === 'active').map((investment) => {
                   const isActive = investment.status === 'active';
                   const maturityDate = new Date(investment.maturity_date);
-                  const today = new Date();
-                  const daysRemaining = Math.ceil((maturityDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                  const timeRemaining = calculateTimeRemaining(investment.maturity_date);
                   
                   return (
                     <Card key={investment.id} className="bg-white p-6 shadow-md border border-gray-100">
                       <div className="flex justify-between items-start mb-4">
                         <div>
                           <h3 className="text-xl font-bold text-gray-900">{investment.plan_name}</h3>
-                          <p className="text-gray-500">Invested on {new Date(investment.created_date).toLocaleDateString()}</p>
+                          <p className="text-gray-500">Invested on {(() => {
+                            try {
+                              // Try created_at first (correct field), fallback to created_date for backward compatibility
+                              const dateValue = investment.created_at || investment.created_date;
+                              if (!dateValue) return 'Date unavailable';
+                              
+                              const investDate = new Date(dateValue);
+                              return isNaN(investDate.getTime()) ? 'Date unavailable' : investDate.toLocaleDateString();
+                            } catch (error) {
+                              return 'Date unavailable';
+                            }
+                          })()}</p>
                         </div>
                         <Badge 
                           className={
@@ -300,7 +416,7 @@ export default function InvestmentPlans() {
                             'bg-blue-100 text-blue-800'
                           }
                         >
-                          {investment.status.charAt(0).toUpperCase() + investment.status.slice(1)}
+                          Active
                         </Badge>
                       </div>
                       
@@ -319,18 +435,60 @@ export default function InvestmentPlans() {
                         </div>
                         <div>
                           <div className="text-sm text-gray-500">
-                            {isActive ? 'Days Remaining' : 'Duration'}
+                            {isActive ? 'Time Remaining' : 'Duration'}
                           </div>
-                          <div className="text-lg font-bold">
-                            {isActive ? `${Math.max(0, daysRemaining)} day${Math.max(0, daysRemaining) !== 1 ? 's' : ''}` : `${investment.duration_days} day${investment.duration_days !== 1 ? 's' : ''}`}
+                          <div className={`text-lg font-bold ${timeRemaining.isExpired ? 'text-red-600' : timeRemaining.days === 0 && timeRemaining.hours < 6 ? 'text-orange-600' : 'text-blue-600'}`}>
+                            {isActive ? formatTimeRemaining(timeRemaining) : `${investment.duration_days} day${investment.duration_days !== 1 ? 's' : ''}`}
                           </div>
+                          {isActive && timeRemaining.days === 0 && timeRemaining.hours < 6 && (
+                            <div className="text-xs text-orange-600 font-medium">
+                              ⚠️ Matures soon!
+                            </div>
+                          )}
                         </div>
                       </div>
+                      
+                      {/* Progress bar for active investments */}
+                      {isActive && (
+                        <div className="mb-4">
+                          <div className="flex justify-between text-xs text-gray-500 mb-1">
+                            <span>Started: {(() => {
+                              try {
+                                // Try created_at first (correct field), fallback to created_date for backward compatibility
+                                const dateValue = investment.created_at || investment.created_date;
+                                if (!dateValue) return 'Date unavailable';
+                                
+                                const startDate = new Date(dateValue);
+                                return isNaN(startDate.getTime()) ? 'Date unavailable' : startDate.toLocaleDateString();
+                              } catch (error) {
+                                return 'Date unavailable';
+                              }
+                            })()}</span>
+                            <span>Matures: {maturityDate.toLocaleDateString()}</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div 
+                              className={`h-2 rounded-full transition-all duration-1000 ${
+                                timeRemaining.isExpired ? 'bg-red-500' : 
+                                timeRemaining.days === 0 && timeRemaining.hours < 6 ? 'bg-orange-500' : 'bg-blue-500'
+                              }`}
+                              style={{
+                                width: `${Math.max(0, Math.min(100, ((investment.duration_days * 24 * 60) - (timeRemaining.days * 24 * 60 + timeRemaining.hours * 60 + timeRemaining.minutes)) / (investment.duration_days * 24 * 60) * 100))}%`
+                              }}
+                            ></div>
+                          </div>
+                        </div>
+                      )}
                       
                       {isActive && (
                         <div className="flex justify-between items-center pt-4 border-t border-gray-100">
                           <div className="text-sm text-gray-600">
                             Matures on: {maturityDate.toLocaleDateString()}
+                            {timeRemaining.days === 0 && timeRemaining.hours < 24 && (
+                              <span className="ml-2 text-blue-600 font-medium">
+                                (Today at {maturityDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})})
+                              </span>
+                            )}
                           </div>
                           <Button 
                             variant="outline"
@@ -348,8 +506,212 @@ export default function InvestmentPlans() {
             ) : (
               <div className="text-center py-12">
                 <TrendingUp className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-gray-600 mb-2">No Investments Yet</h3>
-                <p className="text-gray-500 mb-6">Start building your investment portfolio today.</p>
+                <h3 className="text-xl font-semibold text-gray-600 mb-2">No Ongoing Investments</h3>
+                <p className="text-gray-500 mb-6">Start investing in available plans to see them here.</p>
+                <Button onClick={() => setActiveTab('available')} className="bg-blue-600 hover:bg-blue-700">
+                  Browse Investment Plans
+                </Button>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="matured">
+            {isLoading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-4 text-gray-600">Loading your matured investments...</p>
+              </div>
+            ) : myInvestments.filter(i => i.status === 'matured').length > 0 ? (
+              <div className="space-y-6">
+                {myInvestments.filter(i => i.status === 'matured').map((investment) => (
+                  <Card key={investment.id} className="bg-white p-6 shadow-md border border-gray-100">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h3 className="text-xl font-bold text-gray-900">{investment.plan_name}</h3>
+                        <p className="text-gray-500">Invested on {(() => {
+                          try {
+                            // Try created_at first (correct field), fallback to created_date for backward compatibility
+                            const dateValue = investment.created_at || investment.created_date;
+                            if (!dateValue) return 'Date unavailable';
+                            
+                            const investDate = new Date(dateValue);
+                            return isNaN(investDate.getTime()) ? 'Date unavailable' : investDate.toLocaleDateString();
+                          } catch (error) {
+                            return 'Date unavailable';
+                          }
+                        })()}</p>
+                      </div>
+                      <Badge 
+                        className={
+                          investment.status === 'active' ? 'bg-green-100 text-green-800' :
+                          investment.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                          investment.status === 'completed' ? 'bg-purple-100 text-purple-800' : 
+                          'bg-blue-100 text-blue-800'
+                        }
+                      >
+                        Matured
+                      </Badge>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                      <div>
+                        <div className="text-sm text-gray-500">Amount Invested</div>
+                        <div className="text-lg font-bold">{formatCurrency(investment.amount_invested)}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-500">Expected Profit</div>
+                        <div className="text-lg font-bold text-green-600">+{formatCurrency(investment.expected_profit)}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-500">ROI</div>
+                        <div className="text-lg font-bold text-blue-600">{investment.roi_percentage}%</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-500">
+                          Duration
+                        </div>
+                        <div className="text-lg font-bold text-gray-600">{investment.duration_days} day{investment.duration_days !== 1 ? 's' : ''}</div>
+                      </div>
+                    </div>
+                    
+                    {/* Progress bar for matured investments */}
+                    <div className="mb-4">
+                      <div className="flex justify-between text-xs text-gray-500 mb-1">
+                        <span>Invested: {(() => {
+                          try {
+                            // Try created_at first (correct field), fallback to created_date for backward compatibility
+                            const dateValue = investment.created_at || investment.created_date;
+                            if (!dateValue) return 'Date unavailable';
+                            
+                            const investDate = new Date(dateValue);
+                            return isNaN(investDate.getTime()) ? 'Date unavailable' : investDate.toLocaleDateString();
+                          } catch (error) {
+                            return 'Date unavailable';
+                          }
+                        })()}</span>
+                        <span>Matured: {new Date(investment.matured_at || investment.created_at || investment.created_date).toLocaleDateString()}</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="h-2 rounded-full bg-purple-500"
+                          style={{
+                            width: '100%'
+                          }}
+                        ></div>
+                      </div>
+                    </div>
+                    
+                    {/* No action buttons for matured investments */}
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <TrendingUp className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-gray-600 mb-2">No Matured Investments</h3>
+                <p className="text-gray-500 mb-6">Your matured investments will appear here.</p>
+                <Button onClick={() => setActiveTab('available')} className="bg-blue-600 hover:bg-blue-700">
+                  Browse Investment Plans
+                </Button>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="cancelled">
+            {isLoading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-4 text-gray-600">Loading your cancelled investments...</p>
+              </div>
+            ) : myInvestments.filter(i => i.status === 'cancelled').length > 0 ? (
+              <div className="space-y-6">
+                {myInvestments.filter(i => i.status === 'cancelled').map((investment) => (
+                  <Card key={investment.id} className="bg-white p-6 shadow-md border border-gray-100">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h3 className="text-xl font-bold text-gray-900">{investment.plan_name}</h3>
+                        <p className="text-gray-500">Invested on {(() => {
+                          try {
+                            // Try created_at first (correct field), fallback to created_date for backward compatibility
+                            const dateValue = investment.created_at || investment.created_date;
+                            if (!dateValue) return 'Date unavailable';
+                            
+                            const investDate = new Date(dateValue);
+                            return isNaN(investDate.getTime()) ? 'Date unavailable' : investDate.toLocaleDateString();
+                          } catch (error) {
+                            return 'Date unavailable';
+                          }
+                        })()}</p>
+                      </div>
+                      <Badge 
+                        className={
+                          investment.status === 'active' ? 'bg-green-100 text-green-800' :
+                          investment.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                          investment.status === 'completed' ? 'bg-purple-100 text-purple-800' : 
+                          'bg-blue-100 text-blue-800'
+                        }
+                      >
+                        Cancelled
+                      </Badge>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                      <div>
+                        <div className="text-sm text-gray-500">Amount Invested</div>
+                        <div className="text-lg font-bold">{formatCurrency(investment.amount_invested)}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-500">Expected Profit</div>
+                        <div className="text-lg font-bold text-green-600">+{formatCurrency(investment.expected_profit)}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-500">ROI</div>
+                        <div className="text-lg font-bold text-blue-600">{investment.roi_percentage}%</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-500">
+                          Duration
+                        </div>
+                        <div className="text-lg font-bold text-gray-600">{investment.duration_days} day{investment.duration_days !== 1 ? 's' : ''}</div>
+                      </div>
+                    </div>
+                    
+                    {/* Progress bar for cancelled investments */}
+                    <div className="mb-4">
+                      <div className="flex justify-between text-xs text-gray-500 mb-1">
+                        <span>Invested: {(() => {
+                          try {
+                            // Try created_at first (correct field), fallback to created_date for backward compatibility
+                            const dateValue = investment.created_at || investment.created_date;
+                            if (!dateValue) return 'Date unavailable';
+                            
+                            const investDate = new Date(dateValue);
+                            return isNaN(investDate.getTime()) ? 'Date unavailable' : investDate.toLocaleDateString();
+                          } catch (error) {
+                            return 'Date unavailable';
+                          }
+                        })()}</span>
+                        <span>Cancelled: {new Date(investment.cancelled_at || investment.created_at || investment.created_date).toLocaleDateString()}</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="h-2 rounded-full bg-red-500"
+                          style={{
+                            width: '100%'
+                          }}
+                        ></div>
+                      </div>
+                    </div>
+                    
+                    {/* No action buttons for cancelled investments */}
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <TrendingUp className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-gray-600 mb-2">No Cancelled Investments</h3>
+                <p className="text-gray-500 mb-6">Your cancelled investments will appear here.</p>
                 <Button onClick={() => setActiveTab('available')} className="bg-blue-600 hover:bg-blue-700">
                   Browse Investment Plans
                 </Button>
@@ -367,7 +729,7 @@ export default function InvestmentPlans() {
         onSuccess={() => {
           setIsInvestModalOpen(false);
           loadData(); // Reload data after successful investment
-          setActiveTab('my-investments'); // Switch to my investments tab
+          setActiveTab('ongoing'); // Switch to ongoing investments tab
           showFeedback('success', 'Investment Successful!', 'Your investment has been processed successfully.'); // Use feedback modal
         }}
         onFeedback={showFeedback}

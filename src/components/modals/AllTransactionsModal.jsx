@@ -18,7 +18,7 @@ const iconMap = {
   bonus: Gift,
 };
 
-export default function AllTransactionsModal({ isOpen, onClose }) {
+export default function AllTransactionsModal({ isOpen, onClose, user }) {
   const [transactions, setTransactions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
@@ -29,27 +29,30 @@ export default function AllTransactionsModal({ isOpen, onClose }) {
         try {
             console.log('🔍 Loading user and transactions from Supabase...');
             
-            // Get current user from Supabase auth
-            const { data: { user }, error: userError } = await supabase.auth.getUser();
-            
-            if (userError || !user) {
-                console.error('Error getting user:', userError);
-                setCurrentUser(null);
-                setTransactions([]);
-                return;
+            // Use the user prop if available, otherwise get from auth
+            let currentUserData = user;
+            if (!currentUserData) {
+                const { data: { user: authUser }, error: userError } = await supabase.auth.getUser();
+                if (userError || !authUser) {
+                    console.error('Error getting user:', userError);
+                    setCurrentUser(null);
+                    setTransactions([]);
+                    return;
+                }
+                currentUserData = authUser;
             }
 
             // Get user profile from users table
             const { data: userProfile, error: profileError } = await supabase
                 .from('users')
                 .select('*')
-                .eq('email', user.email)
+                .eq('email', currentUserData.email)
                 .single();
 
             if (profileError) {
                 console.error('Error fetching user profile:', profileError);
                 // Use basic user info if profile fetch fails
-                setCurrentUser({ ...user, role: 'user' });
+                setCurrentUser({ ...currentUserData, role: 'user' });
             } else {
                 setCurrentUser(userProfile);
             }
@@ -68,12 +71,12 @@ export default function AllTransactionsModal({ isOpen, onClose }) {
                 } else {
                     fetchedTransactions = allTransactions || [];
                 }
-            } else if (user) {
+            } else if (currentUserData) {
                 // Regular user sees only their transactions
                 const { data: userTransactions, error: transactionsError } = await supabase
                     .from('transactions')
                     .select('*')
-                    .or(`user_email.eq.${user.email},created_by.eq.${user.email}`)
+                    .eq('user_email', currentUserData.email)
                     .order('created_at', { ascending: false });
                 
                 if (transactionsError) {
@@ -96,7 +99,7 @@ export default function AllTransactionsModal({ isOpen, onClose }) {
     if (isOpen) {
         fetchUserAndTransactions();
     }
-  }, [isOpen]);
+  }, [isOpen, user]);
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', { 
@@ -204,7 +207,7 @@ export default function AllTransactionsModal({ isOpen, onClose }) {
                         {transaction.description || 'No description provided'}
                       </td>
                       <td className="py-3 px-2 text-sm text-gray-500">
-                        {formatDate(transaction.created_date)}
+                        {formatDate(transaction.created_at || transaction.created_date)}
                       </td>
                     </tr>
                   ))
@@ -255,7 +258,7 @@ export default function AllTransactionsModal({ isOpen, onClose }) {
                     {transaction.description || 'No description provided'}
                   </p>
                   <p className="text-xs text-gray-500">
-                    {formatDate(transaction.created_date)}
+                    {formatDate(transaction.created_at || transaction.created_date)}
                   </p>
                 </div>
               ))

@@ -169,8 +169,8 @@ export default function AdminPendingDeposits() {
   };
 
   const getUserInfo = (deposit) => {
-    // First try to use user_email if it exists, otherwise fall back to created_by
-    const emailToLookup = deposit?.user_email || deposit?.created_by;
+    // First try to use user_email if it exists
+    const emailToLookup = deposit?.user_email;
     if (!emailToLookup) return null;
     
     return users[emailToLookup.toLowerCase()] || null;
@@ -292,7 +292,7 @@ export default function AdminPendingDeposits() {
   const filteredDeposits = deposits.filter(deposit => {
     const user = getUserInfo(deposit); // Pass the entire deposit object
     const userName = user?.full_name || '';
-    const userEmail = deposit.user_email || deposit.created_by || ''; // Prioritize user_email
+    const userEmail = deposit.user_email || ''; // Prioritize user_email
 
     return userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
            userEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -405,7 +405,7 @@ export default function AdminPendingDeposits() {
                           {user?.full_name || 'Unknown User'}
                         </h3>
                         <p className="text-sm text-gray-600">
-                          {deposit.user_email || deposit.created_by || 'No email available'}
+                          {deposit.user_email || 'No email available'}
                         </p>
                       </div>
                       
@@ -415,7 +415,7 @@ export default function AdminPendingDeposits() {
                           {truncateText(user?.full_name || 'Unknown User', 12)}
                         </h3>
                         <p className="text-sm text-gray-600">
-                          {truncateText(deposit.user_email || deposit.created_by || 'No email available', 12)}
+                          {truncateText(deposit.user_email || 'No email available', 12)}
                         </p>
                       </div>
                       

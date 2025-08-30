@@ -28,7 +28,15 @@ export default function DeleteConfirmationModal({ isOpen, onClose, onConfirm, ti
         <DialogDescription className="mt-4 text-sm text-gray-500">
           {message}
         </DialogDescription>
-        <DialogFooter className="mt-6 sm:flex sm:flex-row-reverse">
+        <DialogFooter className="mt-6 flex justify-end gap-3">
+          <DialogClose asChild>
+            <Button
+              type="button"
+              variant="outline"
+            >
+              Cancel
+            </Button>
+          </DialogClose>
           <Button
             type="button"
             variant="destructive"
@@ -36,15 +44,6 @@ export default function DeleteConfirmationModal({ isOpen, onClose, onConfirm, ti
           >
             Delete
           </Button>
-          <DialogClose asChild>
-            <Button
-              type="button"
-              variant="outline"
-              className="mt-3 sm:mt-0"
-            >
-              Cancel
-            </Button>
-          </DialogClose>
         </DialogFooter>
       </DialogContent>
     </Dialog>

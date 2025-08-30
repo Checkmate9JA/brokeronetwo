@@ -11,8 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { TradingSymbol } from '@/api/entities';
-import { TradingInstrument } from '@/api/entities';
+import { supabase } from '@/lib/supabase';
 import { Edit } from 'lucide-react';
 
 export default function EditSymbolModal({ isOpen, onClose, symbol, onSuccess, onFeedback }) {
@@ -51,11 +50,25 @@ export default function EditSymbolModal({ isOpen, onClose, symbol, onSuccess, on
 
   const loadInstruments = async () => {
     try {
-      const fetchedInstruments = await TradingInstrument.list();
-      setInstruments(fetchedInstruments);
+      console.log('🔍 Loading trading instruments...');
+      
+      const { data: fetchedInstruments, error } = await supabase
+        .from('trading_instruments')
+        .select('*')
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) {
+        console.error('❌ Error loading instruments:', error);
+        throw new Error(`Failed to load instruments: ${error.message}`);
+      }
+
+      console.log('✅ Instruments loaded:', fetchedInstruments?.length || 0);
+      setInstruments(fetchedInstruments || []);
+      
     } catch (error) {
-      console.error('Error loading instruments:', error);
-      onFeedback('error', 'Load Failed', 'Could not load trading instruments.');
+      console.error('❌ Error loading instruments:', error);
+      onFeedback('error', 'Load Failed', error.message || 'Could not load trading instruments.');
     }
   };
 
@@ -72,13 +85,42 @@ export default function EditSymbolModal({ isOpen, onClose, symbol, onSuccess, on
 
     setIsSubmitting(true);
     try {
-      await TradingSymbol.update(symbol.id, formData);
+      console.log('🔍 Updating trading symbol with data:', formData);
+      
+      // Update the trading symbol in Supabase
+      const { data, error } = await supabase
+        .from('trading_symbols')
+        .update({
+          instrument_id: formData.instrument_id,
+          symbol: formData.symbol,
+          name: formData.name,
+          current_price: formData.current_price,
+          admin_controlled_outcome: formData.admin_controlled_outcome,
+          profit_percentage: formData.profit_percentage,
+          loss_percentage: formData.loss_percentage,
+          price_volatility: formData.price_volatility,
+          is_active: formData.is_active
+        })
+        .eq('id', symbol.id)
+        .select();
+
+      if (error) {
+        console.error('❌ Error updating trading symbol:', error);
+        throw new Error(`Failed to update trading symbol: ${error.message}`);
+      }
+
+      console.log('✅ Trading symbol updated successfully:', data);
+      
+      // Show success feedback
       onFeedback('success', 'Symbol Updated', 'Trading symbol has been updated successfully.');
+      
+      // Close modal and refresh data
       onSuccess();
       onClose();
+      
     } catch (error) {
-      console.error('Error updating symbol:', error);
-      onFeedback('error', 'Update Failed', 'Failed to update trading symbol.');
+      console.error('❌ Error updating symbol:', error);
+      onFeedback('error', 'Update Failed', error.message || 'Failed to update trading symbol.');
     } finally {
       setIsSubmitting(false);
     }

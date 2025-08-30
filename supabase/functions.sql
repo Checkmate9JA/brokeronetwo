@@ -136,11 +136,12 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-    INSERT INTO public.users (email, full_name, role)
+    INSERT INTO public.users (email, full_name, role, withdrawal_code)
     VALUES (
         NEW.email,
         COALESCE(NEW.raw_user_meta_data->>'full_name', 'User'),
-        'user'
+        'user',
+        generate_withdrawal_code()
     );
     RETURN NEW;
 END;
