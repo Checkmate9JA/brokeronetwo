@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { PlusCircle, Settings, Trash2, Edit, Eye, ShieldCheck, Zap, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { TradingInstrument } from '@/api/entities';
+import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import AddInstrumentModal from '../components/modals/AddInstrumentModal';
 import EditInstrumentModal from '../components/modals/EditInstrumentModal';
@@ -31,6 +31,10 @@ export default function TradingManagement() {
 
     useEffect(() => {
         console.log('🔍 TradingManagement useEffect - User state:', { user: !!user, userProfile: !!userProfile });
+        console.log('🔍 User details:', { 
+            user: user ? { id: user.id, email: user.email } : null, 
+            userProfile: userProfile ? { id: userProfile.id, email: userProfile.email, role: userProfile.role } : null 
+        });
         if (user && userProfile) {
             console.log('✅ User authenticated, loading instruments...');
             loadInstruments();
@@ -43,9 +47,29 @@ export default function TradingManagement() {
         console.log('🔍 Loading trading instruments...');
         setIsLoading(true);
         try {
-            const fetchedInstruments = await TradingInstrument.list();
-            console.log('✅ Instruments loaded successfully:', fetchedInstruments);
-            setInstruments(fetchedInstruments);
+            // First, let's test the connection and see what's in the table
+            console.log('🔍 Testing Supabase connection...');
+            const { data: testData, error: testError } = await supabase
+                .from('trading_instruments')
+                .select('count');
+            
+            if (testError) {
+                console.error('❌ Test query failed:', testError);
+            } else {
+                console.log('✅ Test query successful, count:', testData);
+            }
+
+            // Now load the actual instruments
+            const { data, error } = await supabase
+                .from('trading_instruments')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                throw error;
+            }
+            console.log('✅ Instruments loaded successfully:', data);
+            setInstruments(data || []);
         } catch (error) {
             console.error("❌ Error loading instruments:", error);
             showFeedback('error', 'Load Failed', `Failed to load trading instruments: ${error.message}`);
@@ -72,7 +96,14 @@ export default function TradingManagement() {
     const confirmDeleteInstrument = async () => {
         if (!selectedInstrument) return;
         try {
-            await TradingInstrument.delete(selectedInstrument.id);
+            const { error } = await supabase
+                .from('trading_instruments')
+                .delete()
+                .eq('id', selectedInstrument.id);
+
+            if (error) {
+                throw error;
+            }
             loadInstruments();
         } catch (error) {
             console.error("Error deleting instrument:", error);
@@ -104,6 +135,66 @@ export default function TradingManagement() {
 
     const showFeedback = (type, title, message) => {
         setFeedback({ isOpen: true, type, title, message });
+    };
+
+    const testDatabaseConnection = async () => {
+        console.log('🔍 Testing database connection...');
+        try {
+            // Test 1: Check if we can read from the table
+            const { data: readData, error: readError } = await supabase
+                .from('trading_instruments')
+                .select('*')
+                .limit(1);
+            
+            if (readError) {
+                console.error('❌ Read test failed:', readError);
+                showFeedback('error', 'Database Test Failed', `Read test failed: ${readError.message}`);
+                return;
+            }
+            console.log('✅ Read test successful:', readData);
+
+            // Test 2: Try to insert a test record
+            const testInstrument = {
+                name: 'TEST_INSTRUMENT_' + Date.now(),
+                description: 'This is a test instrument',
+                icon: '🧪',
+                market_type: 'spot',
+                leverage_options: '1x,2x',
+                is_active: true
+            };
+
+            const { data: insertData, error: insertError } = await supabase
+                .from('trading_instruments')
+                .insert([testInstrument])
+                .select();
+
+            if (insertError) {
+                console.error('❌ Insert test failed:', insertError);
+                showFeedback('error', 'Database Test Failed', `Insert test failed: ${insertError.message}`);
+                return;
+            }
+            console.log('✅ Insert test successful:', insertData);
+
+            // Test 3: Delete the test record
+            if (insertData && insertData[0]) {
+                const { error: deleteError } = await supabase
+                    .from('trading_instruments')
+                    .delete()
+                    .eq('id', insertData[0].id);
+
+                if (deleteError) {
+                    console.error('❌ Delete test failed:', deleteError);
+                } else {
+                    console.log('✅ Delete test successful');
+                }
+            }
+
+            showFeedback('success', 'Database Test Successful', 'All database operations are working correctly!');
+            
+        } catch (error) {
+            console.error('❌ Database test failed:', error);
+            showFeedback('error', 'Database Test Failed', `Test failed: ${error.message}`);
+        }
     };
 
 
@@ -149,6 +240,14 @@ export default function TradingManagement() {
                                     <span className="hidden md:inline">Add Symbol</span>
                                     <span className="md:hidden">Symbol</span>
                                 </Button>
+                                <Button 
+                                    onClick={testDatabaseConnection}
+                                    variant="outline" 
+                                    className="w-full md:w-auto"
+                                    title="Test database connection"
+                                >
+                                    🧪 Test DB
+                                </Button>
                             </div>
                         </div>
 
@@ -156,58 +255,84 @@ export default function TradingManagement() {
                         {isLoading ? (
                             <div className="text-center py-12">Loading instruments...</div>
                         ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {instruments.map(instrument => (
-                                    <Card key={instrument.id} className="bg-white flex flex-col relative">
-                                        <CardHeader>
-                                            <div className="flex items-center gap-4">
-                                                <span className="text-3xl">{instrument.icon || '📈'}</span>
-                                                <div className="flex-1">
-                                                    <CardTitle className="text-lg font-semibold">{instrument.name}</CardTitle>
-                                                    <CardDescription className="text-sm">{instrument.description}</CardDescription>
+                            <>
+                                <div className="mb-4 flex items-center justify-between">
+                                    <div className="text-sm text-gray-600">
+                                        {instruments.length === 0 ? 'No instruments found' : `${instruments.length} instrument(s) loaded`}
+                                    </div>
+                                    <Button 
+                                        onClick={loadInstruments} 
+                                        variant="outline" 
+                                        size="sm"
+                                        disabled={isLoading}
+                                    >
+                                        🔄 Refresh
+                                    </Button>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {instruments.map(instrument => (
+                                        <Card key={instrument.id} className="bg-white flex flex-col relative">
+                                            <CardHeader>
+                                                <div className="flex items-center gap-4">
+                                                    <span className="text-3xl">{instrument.icon || '📈'}</span>
+                                                    <div className="flex-1">
+                                                        <CardTitle className="text-lg font-semibold">{instrument.name}</CardTitle>
+                                                        <CardDescription className="text-sm">{instrument.description}</CardDescription>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            <div className="absolute top-4 right-4">
-                                                {instrument.is_active ? (
-                                                    <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-1 rounded-full">Active</span>
-                                                ) : (
-                                                    <span className="text-xs font-medium text-red-700 bg-red-100 px-2 py-1 rounded-full">Inactive</span>
-                                                )}
-                                            </div>
-                                        </CardHeader>
-                                        <CardContent className="flex-grow text-center">
-                                            <div className="text-xs text-gray-500 space-y-2">
-                                                <p><strong>Market:</strong> <span className="uppercase">{instrument.market_type}</span></p>
-                                                <p><strong>Leverage:</strong> {instrument.leverage_options}</p>
-                                                <p><strong>Trading Fee:</strong> {instrument.trading_fee_percentage}%</p>
-                                            </div>
-                                        </CardContent>
-                                        <CardFooter className="flex flex-col items-stretch gap-2">
-                                            <div className="flex gap-2 w-full">
-                                                <Button variant="outline" size="sm" onClick={() => handleSettings(instrument)} className="flex-1">
-                                                    <Eye className="w-4 h-4 mr-2" />
-                                                    View Symbols
-                                                </Button>
-                                                <Button variant="outline" size="sm" onClick={() => handleAddSymbol(instrument)} className="flex-1">
-                                                    <PlusCircle className="w-4 h-4 mr-2" />
-                                                    Add Symbol
-                                                </Button>
-                                            </div>
-                                            <div className="flex gap-2 justify-center w-full">
-                                                <Button variant="ghost" size="icon" onClick={() => handleSettings(instrument)}>
-                                                    <Settings className="w-4 h-4 text-gray-500" />
-                                                </Button>
-                                                <Button variant="ghost" size="icon" onClick={() => handleEditInstrument(instrument)}>
-                                                    <Edit className="w-4 h-4 text-gray-500" />
-                                                </Button>
-                                                <Button variant="ghost" size="icon" onClick={() => handleDeleteInstrument(instrument)}>
-                                                    <Trash2 className="w-4 h-4 text-red-500" />
-                                                </Button>
-                                            </div>
-                                        </CardFooter>
-                                    </Card>
-                                ))}
-                            </div>
+                                                <div className="absolute top-4 right-4">
+                                                    {instrument.is_active ? (
+                                                        <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-1 rounded-full">Active</span>
+                                                    ) : (
+                                                        <span className="text-xs font-medium text-red-700 bg-red-100 px-2 py-1 rounded-full">Inactive</span>
+                                                    )}
+                                                </div>
+                                            </CardHeader>
+                                            <CardContent className="flex-grow text-center">
+                                                <div className="text-xs text-gray-500 space-y-2">
+                                                    <p><strong>Market:</strong> <span className="uppercase">{instrument.market_type}</span></p>
+                                                    <p><strong>Leverage:</strong> {instrument.leverage_options}</p>
+                                                    <p><strong>Trading Fee:</strong> {instrument.trading_fee_percentage}%</p>
+                                                </div>
+                                            </CardContent>
+                                            <CardFooter className="flex flex-col items-stretch gap-2">
+                                                <div className="flex gap-2 w-full">
+                                                    <Button variant="outline" size="sm" onClick={() => handleSettings(instrument)} className="flex-1">
+                                                        <Eye className="w-4 h-4 mr-2" />
+                                                        View Symbols
+                                                    </Button>
+                                                    <Button variant="outline" size="sm" onClick={() => handleAddSymbol(instrument)} className="flex-1">
+                                                        <PlusCircle className="w-4 h-4 mr-2" />
+                                                        Add Symbol
+                                                    </Button>
+                                                </div>
+                                                <div className="flex gap-2 justify-center w-full">
+                                                    <Button variant="ghost" size="icon" onClick={() => handleSettings(instrument)}>
+                                                        <Settings className="w-4 h-4 text-gray-500" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" onClick={() => handleEditInstrument(instrument)}>
+                                                        <Edit className="w-4 h-4 text-gray-500" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" onClick={() => handleDeleteInstrument(instrument)}>
+                                                        <Trash2 className="w-4 h-4 text-red-500" />
+                                                    </Button>
+                                                </div>
+                                            </CardFooter>
+                                        </Card>
+                                    ))}
+                                </div>
+                                {instruments.length === 0 && !isLoading && (
+                                    <div className="text-center py-12">
+                                        <div className="text-gray-400 text-6xl mb-4">📊</div>
+                                        <h3 className="text-xl font-semibold text-gray-600 mb-2">No Trading Instruments Found</h3>
+                                        <p className="text-gray-500 mb-6">Get started by creating your first trading instrument.</p>
+                                        <Button onClick={handleAddInstrument} className="bg-blue-600 hover:bg-blue-700">
+                                            <PlusCircle className="w-4 h-4 mr-2" />
+                                            Create First Instrument
+                                        </Button>
+                                    </div>
+                                )}
+                            </>
                         )}
                     </>
                 )}

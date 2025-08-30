@@ -40,6 +40,8 @@ export default function AddInstrumentModal({ isOpen, onClose, onSuccess, onFeedb
     
     try {
       console.log('🔍 Creating trading instrument with data:', formData);
+      console.log('🔍 Supabase client:', supabase);
+      console.log('🔍 Current user session:', await supabase.auth.getSession());
       
       // Insert the trading instrument into Supabase
       const { data, error } = await supabase
@@ -56,6 +58,12 @@ export default function AddInstrumentModal({ isOpen, onClose, onSuccess, onFeedb
 
       if (error) {
         console.error('❌ Error creating trading instrument:', error);
+        console.error('❌ Error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
         throw new Error(`Failed to create trading instrument: ${error.message}`);
       }
 
