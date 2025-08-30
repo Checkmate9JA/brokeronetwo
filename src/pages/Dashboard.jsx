@@ -814,11 +814,11 @@ export default function Dashboard() {
         {appConfig.id === 'app2' && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             {/* Account Balance Card (App 2) */}
-            <Card className="p-6 bg-white hover:shadow-md transition-all duration-300 border-gray-100 flex flex-col text-center">
+            <Card className="p-6 bg-blue-50 hover:shadow-md transition-all duration-300 border-gray-100 flex flex-col text-center">
               <div className="flex-grow">
                 <div className="flex items-center justify-center gap-3 mb-2">
-                   <div className="p-3 rounded-lg bg-blue-50">
-                    <Wallet className="w-5 h-5 text-blue-600" />
+                   <div className="p-3 rounded-lg bg-blue-600">
+                    <Wallet className="w-5 h-5 text-white" />
                   </div>
                   <div>
                      <h3 className="font-medium text-gray-700 text-sm text-left">Account Balance</h3>
@@ -916,7 +916,7 @@ export default function Dashboard() {
                 color="red"
                 onClick={handleWithdrawClick}
                 isLoading={isWithdrawalLoading}
-              />
+            />
             </div>
 
             {appConfig.features.showInvestmentPlans && (
@@ -927,7 +927,7 @@ export default function Dashboard() {
                   description="Browse investment opportunities"
                   buttonText="View Plans"
                   buttonIcon={BarChart3}
-                  color="purple"
+                  color="indigo"
                 />
               </Link>
             )}
@@ -940,7 +940,7 @@ export default function Dashboard() {
                   description="Access the trading platform"
                   buttonText="Trade Now"
                   buttonIcon={Zap}
-                  color="indigo"
+                  color="green"
                 />
               </Link>
             )}

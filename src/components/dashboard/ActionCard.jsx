@@ -15,23 +15,33 @@ export default function ActionCard({
 }) {
   const colorClasses = {
     blue: {
-      iconBg: 'bg-blue-50',
-      iconColor: 'text-blue-600',
+      cardBg: 'bg-blue-50',
+      iconBg: 'bg-blue-600',
+      iconColor: 'text-white',
       button: 'bg-blue-600 hover:bg-blue-700'
     },
     red: {
-      iconBg: 'bg-red-50', 
-      iconColor: 'text-red-600',
+      cardBg: 'bg-red-50', 
+      iconBg: 'bg-red-600',
+      iconColor: 'text-white',
       button: 'bg-red-600 hover:bg-red-700'
     },
+    green: {
+      cardBg: 'bg-green-50',
+      iconBg: 'bg-green-600',
+      iconColor: 'text-white',
+      button: 'bg-green-600 hover:bg-green-700'
+    },
     purple: {
-      iconBg: 'bg-purple-50',
-      iconColor: 'text-purple-600', 
+      cardBg: 'bg-purple-50',
+      iconBg: 'bg-purple-600', 
+      iconColor: 'text-white',
       button: 'bg-purple-600 hover:bg-purple-700'
     },
     indigo: {
-      iconBg: 'bg-indigo-50',
-      iconColor: 'text-indigo-600',
+      cardBg: 'bg-indigo-50',
+      iconBg: 'bg-indigo-600',
+      iconColor: 'text-white',
       button: 'bg-indigo-600 hover:bg-indigo-700'
     }
   };
@@ -39,7 +49,7 @@ export default function ActionCard({
   const colors = colorClasses[color];
 
   return (
-    <Card className="p-6 bg-white hover:shadow-md transition-all duration-300 border-gray-100 flex flex-col h-full">
+    <Card className={`p-6 hover:shadow-md transition-all duration-300 border-gray-100 flex flex-col h-full ${colors.cardBg}`}>
       <div className="flex-grow">
         <div className="flex items-start gap-4 mb-6">
           <div className={`p-3 rounded-full ${colors.iconBg}`}>

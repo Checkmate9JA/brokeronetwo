@@ -13,11 +13,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown } from 'lucide-react';
-import { TradingPosition } from '@/api/entities';
-import { User } from '@/api/entities';
-import { AdminSetting } from '@/api/entities';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function PlaceTradeModal({ isOpen, onClose, symbol, tradeDirection, user, onSuccess, onFeedback }) {
+  const { user: authUser } = useAuth();
+  console.log('🔍 PlaceTradeModal props:', { isOpen, symbol, tradeDirection, user: user ? { email: user.email, id: user.id } : null });
+  console.log('🔍 Auth context user:', authUser ? { email: authUser.email, id: authUser.id } : null);
+  
   const [formData, setFormData] = useState({
     investment_amount: 100,
     leverage: '1x',
@@ -34,22 +37,13 @@ export default function PlaceTradeModal({ isOpen, onClose, symbol, tradeDirectio
   }, [isOpen]);
 
   const loadMinimumAmount = async () => {
-    try {
-      const settings = await AdminSetting.list();
-      const minSetting = settings.find(s => s.setting_key === 'min_regular_trade_amount');
-      if (minSetting) {
-        const minAmount = parseFloat(minSetting.setting_value) || 10;
-        setMinimumAmount(minAmount);
-        setFormData(prev => ({
-          ...prev,
-          investment_amount: Math.max(prev.investment_amount, minAmount)
-        }));
-      }
-    } catch (error) {
-      console.error('Error loading minimum amount:', error);
-      // Fallback to default minimum if loading fails
-      setMinimumAmount(10);
-    }
+    // Use default minimum amount since we're not loading from AdminSetting
+    const minAmount = 10;
+    setMinimumAmount(minAmount);
+    setFormData(prev => ({
+      ...prev,
+      investment_amount: Math.max(prev.investment_amount, minAmount)
+    }));
   };
 
   const handleChange = (field, value) => {
@@ -75,7 +69,28 @@ export default function PlaceTradeModal({ isOpen, onClose, symbol, tradeDirectio
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!symbol || !user) return;
+    if (!symbol || !user) {
+      onFeedback('error', 'Missing Data', 'Symbol or user information is missing.');
+      return;
+    }
+
+    if (!user.email) {
+      onFeedback('error', 'User Error', 'User email is missing. Please log in again.');
+      return;
+    }
+
+    if (!authUser || !authUser.email) {
+      onFeedback('error', 'Authentication Error', 'You are not properly authenticated. Please log in again.');
+      return;
+    }
+
+    // Use the authenticated user's email from the auth context
+    const userEmail = authUser.email;
+
+    if (!symbol.id) {
+      onFeedback('error', 'Symbol Error', 'Symbol ID is missing. Please select a valid symbol.');
+      return;
+    }
 
     // Check minimum investment amount
     if (formData.investment_amount < minimumAmount) {
@@ -93,29 +108,74 @@ export default function PlaceTradeModal({ isOpen, onClose, symbol, tradeDirectio
     try {
       // Create trading position
       const positionData = {
-        user_email: user.email,
+        user_email: userEmail, // Use authenticated user's email
         symbol_id: symbol.id,
         symbol_code: symbol.symbol,
         trade_direction: tradeDirection,
         investment_amount: formData.investment_amount,
         leverage: formData.leverage,
-        entry_price: symbol.current_price || 45230,
-        current_price: symbol.current_price || 45230,
+        entry_price: symbol.current_price || 100,
+        current_price: symbol.current_price || 100,
         profit_loss_amount: 0,
         profit_loss_percentage: 0,
         status: 'open',
-        stop_loss_price: (symbol.current_price || 45230) * (1 - formData.stop_loss_percentage / 100),
-        take_profit_price: (symbol.current_price || 45230) * (1 + formData.take_profit_percentage / 100),
-        opened_date: new Date().toISOString()
+        stop_loss_price: (symbol.current_price || 100) * (1 - formData.stop_loss_percentage / 100),
+        take_profit_price: (symbol.current_price || 100) * (1 + formData.take_profit_percentage / 100)
+        // opened_date will be set automatically by the database
       };
 
-      await TradingPosition.create(positionData);
+      console.log('🔍 Creating trading position with data:', positionData);
+      
+      // First, test if we can read from the table (this will help debug RLS issues)
+      const { data: testRead, error: testError } = await supabase
+        .from('trading_positions')
+        .select('id')
+        .eq('user_email', userEmail)
+        .limit(1);
+      
+      if (testError) {
+        console.error('❌ Test read failed:', testError);
+        throw new Error(`Cannot access trading_positions table: ${testError.message}`);
+      }
+      
+      console.log('✅ Test read successful, existing positions:', testRead?.length || 0);
+      
+      // Check current Supabase session
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) {
+        console.error('❌ Session check failed:', sessionError);
+      } else {
+        console.log('🔍 Current session:', sessionData.session ? 'Authenticated' : 'No session');
+      }
+      
+      // Create trading position using Supabase
+      const { data: position, error: positionError } = await supabase
+        .from('trading_positions')
+        .insert(positionData)
+        .select()
+        .single();
 
-      // Deduct amount from trading wallet
-      await User.update(user.id, {
-        trading_wallet: user.trading_wallet - formData.investment_amount,
-        total_balance: user.total_balance - formData.investment_amount
-      });
+      if (positionError) {
+        console.error('Error creating position:', positionError);
+        throw new Error(`Failed to create trading position: ${positionError.message}`);
+      }
+
+      // Deduct amount from trading wallet using Supabase
+      const { error: userError } = await supabase
+        .from('users')
+        .update({
+          trading_wallet: user.trading_wallet - formData.investment_amount,
+          total_balance: user.total_balance - formData.investment_amount
+        })
+        .eq('id', user.id);
+
+      if (userError) {
+        console.error('Error updating user wallet:', userError);
+        throw new Error(`Failed to update user wallet: ${userError.message}`);
+      }
+
+      console.log('✅ Trading position created successfully:', position);
+      console.log('✅ User wallet updated successfully');
 
       onFeedback('success', 'Trade Placed', `Your ${tradeDirection} order for ${symbol.symbol} has been placed successfully.`);
       onSuccess();

@@ -21,19 +21,24 @@ export default function WalletCard({ type, title, amount, subtitle, isProfit = f
   const Icon = iconMap[type];
   
   return (
-    <Card className="p-6 bg-white hover:shadow-md transition-all duration-300 border-gray-100">
+    <Card className={`p-6 hover:shadow-md transition-all duration-300 border-gray-100 ${
+      type === 'total' ? 'bg-blue-50' :
+      type === 'deposit' ? 'bg-gray-100' :
+      type === 'profit' ? 'bg-green-50' :
+      'bg-purple-50'
+    }`}>
       <div className="flex items-start justify-between mb-4">
         <div className={`p-2 rounded-lg ${
-          type === 'total' ? 'bg-blue-50' :
-          type === 'deposit' ? 'bg-gray-50' :
-          type === 'profit' ? 'bg-green-50' :
-          'bg-purple-50'
+          type === 'total' ? 'bg-blue-600' :
+          type === 'deposit' ? 'bg-gray-600' :
+          type === 'profit' ? 'bg-green-600' :
+          'bg-purple-600'
         }`}>
           <Icon className={`w-5 h-5 ${
-            type === 'total' ? 'text-blue-600' :
-            type === 'deposit' ? 'text-gray-600' :
-            type === 'profit' ? 'text-green-600' :
-            'text-purple-600'
+            type === 'total' ? 'text-white' :
+            type === 'deposit' ? 'text-white' :
+            type === 'profit' ? 'text-white' :
+            'text-white'
           }`} />
         </div>
         <div className="flex-1 text-center">

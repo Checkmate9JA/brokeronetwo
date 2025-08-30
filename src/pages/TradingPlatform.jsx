@@ -7,13 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, TrendingUp, TrendingDown, Users, Play, Pause, BarChart3, Clock, X, CopyIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { User } from '@/api/entities';
-import { ExpertTrader } from '@/api/entities';
-import { TradingPosition } from '@/api/entities';
-import { TradingInstrument } from '@/api/entities';
-import { TradingSymbol } from '@/api/entities';
-import { Transaction } from '@/api/entities';
-import { AdminSetting } from '@/api/entities'; // Added import for AdminSetting
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
 import PlaceTradeModal from '../components/modals/PlaceTradeModal';
 import FeedbackModal from '../components/modals/FeedbackModal';
@@ -201,9 +196,11 @@ const TraderCard = ({ trader, onCopyTrade }) => {
 };
 
 export default function TradingPlatform() {
+  const { user: authUser, userProfile } = useAuth();
   const [user, setUser] = useState(null);
   const [traders, setTraders] = useState([]);
   const [positions, setPositions] = useState([]);
+  const [closedPositions, setClosedPositions] = useState([]);
   const [instruments, setInstruments] = useState([]);
   const [symbols, setSymbols] = useState([]);
   const [selectedInstrument, setSelectedInstrument] = useState(null);
@@ -234,8 +231,10 @@ export default function TradingPlatform() {
   const [selectedInstrumentForSymbols, setSelectedInstrumentForSymbols] = useState(null);
 
   useEffect(() => {
-    loadData();
-  }, []); // Run loadData only once on mount
+    if (authUser && userProfile) {
+      loadData();
+    }
+  }, [authUser, userProfile]); // Run loadData when user is authenticated
 
   useEffect(() => {
     // Set up position price updates simulation
@@ -244,58 +243,127 @@ export default function TradingPlatform() {
   }, []); // Run interval setup only once
 
   const loadData = async () => {
+    if (!authUser) return;
+    
     setIsLoading(true);
     try {
-      const [currentUser, traderData, positionData, instrumentData, symbolData] = await Promise.all([
-        User.me(),
-        ExpertTrader.list(),
-        TradingPosition.filter({ 
-          status: 'open' // Include both open and paused positions
-        }),
-        TradingInstrument.filter({ is_active: true }),
-        TradingSymbol.filter({ is_active: true })
-      ]);
-      
-      // Calculate correct total balance (only wallet balances)
-      const correctTotalBalance = (currentUser.deposit_wallet || 0) + (currentUser.profit_wallet || 0) + (currentUser.trading_wallet || 0);
+      // Load user data
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', authUser.email)
+        .single();
+
+      if (userError) throw userError;
+
+      // Load trading instruments
+      const { data: instrumentData, error: instrumentError } = await supabase
+        .from('trading_instruments')
+        .select('*')
+        .eq('is_active', true)
+        .order('name', { ascending: true });
+
+      if (instrumentError) throw instrumentError;
+
+      // Load trading symbols
+      const { data: symbolData, error: symbolError } = await supabase
+        .from('trading_symbols')
+        .select('*')
+        .eq('is_active', true)
+        .order('symbol', { ascending: true });
+
+      if (symbolError) throw symbolError;
+
+      // Load open positions
+      const { data: openPositionData, error: openPositionError } = await supabase
+        .from('trading_positions')
+        .select('*')
+        .eq('user_email', authUser.email)
+        .in('status', ['open', 'paused'])
+        .order('created_at', { ascending: false });
+
+      if (openPositionError) throw openPositionError;
+
+      // Load closed positions
+      const { data: closedPositionData, error: closedPositionError } = await supabase
+        .from('trading_positions')
+        .select('*')
+        .eq('user_email', authUser.email)
+        .eq('status', 'closed')
+        .order('closed_date', { ascending: false });
+
+      if (closedPositionError) throw closedPositionError;
+
+      // Load expert traders (mock data for now)
+      const mockTraders = [
+        {
+          id: 1,
+          name: 'Alex Thompson',
+          specialties: 'Forex & Crypto',
+          avg_return: '+15.2% monthly',
+          win_rate: 78,
+          trades_count: 156,
+          followers: 1247,
+          avatar_url: null,
+          recent_trades: [
+            { action: 'BUY', symbol: 'EUR/USD', profit_loss: '+$234' },
+            { action: 'SELL', symbol: 'BTC/USD', profit_loss: '+$156' },
+            { action: 'BUY', symbol: 'GBP/USD', profit_loss: '-$89' }
+          ]
+        },
+        {
+          id: 2,
+          name: 'Sarah Chen',
+          specialties: 'Stocks & ETFs',
+          avg_return: '+12.8% monthly',
+          win_rate: 82,
+          trades_count: 203,
+          followers: 2156,
+          avatar_url: null,
+          recent_trades: [
+            { action: 'BUY', symbol: 'AAPL', profit_loss: '+$445' },
+            { action: 'BUY', symbol: 'TSLA', profit_loss: '+$312' },
+            { action: 'SELL', symbol: 'NVDA', profit_loss: '+$178' }
+          ]
+        }
+      ];
+
+      // Calculate total balance
+      const totalBalance = (userData.deposit_wallet || 0) + (userData.profit_wallet || 0) + (userData.trading_wallet || 0);
       
       setUser({
-        ...currentUser,
-        total_balance: correctTotalBalance
+        ...userData,
+        total_balance: totalBalance
       });
-      setTraders(traderData);
+      setTraders(mockTraders);
+      setPositions(openPositionData || []);
+      setClosedPositions(closedPositionData || []);
+      setInstruments(instrumentData || []);
       
-      // Filter positions to include both open and paused
-      const activePositions = positionData.filter(p => p.status === 'open' || p.status === 'paused');
-      setPositions(activePositions);
-      setInstruments(instrumentData);
-      
-      // Enhanced price simulation with realistic values
-      const pricedSymbolData = symbolData.map(symbol => {
-          if (!symbol.current_price || symbol.current_price === 0) {
-              // Assign realistic prices based on symbol name
-              if (symbol.symbol.toUpperCase().includes('BTC')) {
-                  symbol.current_price = 67000 + Math.random() * 1000;
-              } else if (symbol.symbol.toUpperCase().includes('ETH')) {
-                  symbol.current_price = 3500 + Math.random() * 100;
-              } else if (symbol.symbol.toUpperCase().includes('USD') || symbol.symbol.toUpperCase().includes('EUR')) {
-                  symbol.current_price = 1.1 + Math.random() * 0.1;
-              } else {
-                  symbol.current_price = 100 + Math.random() * 50;
-              }
+      // Add realistic prices to symbols
+      const pricedSymbolData = (symbolData || []).map(symbol => {
+        if (!symbol.current_price || symbol.current_price === 0) {
+          if (symbol.symbol.toUpperCase().includes('BTC')) {
+            symbol.current_price = 67000 + Math.random() * 1000;
+          } else if (symbol.symbol.toUpperCase().includes('ETH')) {
+            symbol.current_price = 3500 + Math.random() * 100;
+          } else if (symbol.symbol.toUpperCase().includes('USD') || symbol.symbol.toUpperCase().includes('EUR')) {
+            symbol.current_price = 1.1 + Math.random() * 0.1;
+          } else {
+            symbol.current_price = 100 + Math.random() * 50;
           }
-          // Add dummy admin control for demonstration
-          if (symbol.symbol.includes('BTC')) {
-            symbol.admin_controlled_outcome = 'force_profit';
-            symbol.profit_percentage = 5;
-          } else if (symbol.symbol.includes('ETH')) {
-            symbol.admin_controlled_outcome = 'force_loss';
-            symbol.loss_percentage = 3;
-          }
-          return symbol;
+        }
+        return symbol;
       });
 
       setSymbols(pricedSymbolData);
+
+      console.log('Loaded data:', {
+        instruments: instrumentData?.length || 0,
+        symbols: symbolData?.length || 0,
+        openPositions: openPositionData?.length || 0,
+        closedPositions: closedPositionData?.length || 0
+      });
     } catch (error) {
       console.error('Error loading trading data:', error);
     } finally {
@@ -362,10 +430,18 @@ export default function TradingPlatform() {
         }
         
         // Update position in database
-        await TradingPosition.update(position.id, {
-          profit_loss_amount: profitLossAmount,
-          profit_loss_percentage: profitLossPercentage
-        });
+        const { error: updateError } = await supabase
+          .from('trading_positions')
+          .update({
+            profit_loss_amount: profitLossAmount,
+            profit_loss_percentage: profitLossPercentage
+          })
+          .eq('id', position.id);
+
+        if (updateError) {
+          console.error('Error updating position:', updateError);
+          return position;
+        }
         
         return {
           ...position,
@@ -431,13 +507,18 @@ export default function TradingPlatform() {
   };
 
   const handleClosePosition = async (position) => {
-    if (!user) return;
+    if (!user || !authUser) return;
     try {
       // 1. Update position status to closed
-      await TradingPosition.update(position.id, {
-        status: 'closed',
-        closed_date: new Date().toISOString()
-      });
+      const { error: positionError } = await supabase
+        .from('trading_positions')
+        .update({
+          status: 'closed',
+          closed_date: new Date().toISOString()
+        })
+        .eq('id', position.id);
+
+      if (positionError) throw positionError;
 
       // 2. Calculate final settlement with leverage effects
       const totalReturn = position.investment_amount + (position.profit_loss_amount || 0);
@@ -446,19 +527,28 @@ export default function TradingPlatform() {
       const newTradingWallet = (user.trading_wallet || 0) + totalReturn;
       const newTotalBalance = (user.total_balance || 0) + (position.profit_loss_amount || 0); // Only P&L affects total balance
       
-      await User.update(user.id, {
-        trading_wallet: newTradingWallet,
-        total_balance: newTotalBalance
-      });
+      const { error: userError } = await supabase
+        .from('users')
+        .update({
+          trading_wallet: newTradingWallet,
+          total_balance: newTotalBalance
+        })
+        .eq('id', user.id);
+
+      if (userError) throw userError;
 
       // 4. Create transaction record for the result
-      await Transaction.create({
-        user_email: user.email,
-        type: 'profit',
-        amount: Math.abs(position.profit_loss_amount || 0),
-        status: 'completed',
-        description: `${position.profit_loss_amount >= 0 ? 'Profit' : 'Loss'} from closing ${position.symbol_code} trade (${position.leverage} leverage)`
-      });
+      const { error: transactionError } = await supabase
+        .from('transactions')
+        .insert({
+          user_email: user.email,
+          type: 'profit',
+          amount: Math.abs(position.profit_loss_amount || 0),
+          status: 'completed',
+          description: `${position.profit_loss_amount >= 0 ? 'Profit' : 'Loss'} from closing ${position.symbol_code} trade (${position.leverage} leverage)`
+        });
+
+      if (transactionError) throw transactionError;
 
       showFeedback('success', 'Position Closed', `Position for ${position.symbol_code} has been closed. ${position.profit_loss_amount >= 0 ? 'Profit' : 'Loss'}: ${formatCurrency(position.profit_loss_amount || 0)}`);
       loadData(); // Reload data
@@ -471,7 +561,13 @@ export default function TradingPlatform() {
   const handlePausePosition = async (position) => {
     const newStatus = position.status === 'paused' ? 'open' : 'paused';
     try {
-      await TradingPosition.update(position.id, { status: newStatus });
+      const { error } = await supabase
+        .from('trading_positions')
+        .update({ status: newStatus })
+        .eq('id', position.id);
+
+      if (error) throw error;
+
       showFeedback('success', 'Position Updated', `Position for ${position.symbol_code} has been ${newStatus}.`);
       loadData();
     } catch (error) {
@@ -486,16 +582,14 @@ export default function TradingPlatform() {
   };
 
   const handleCopyTrade = async (trader) => {
-    if (!user) {
+    if (!user || !authUser) {
       showFeedback('error', 'Not Logged In', 'Please log in to copy trades.');
       return;
     }
 
     try {
-      // Load minimum copy trade amount from admin settings
-      const settings = await AdminSetting.list();
-      const minCopyTradeSetting = settings.find(s => s.setting_key === 'min_copy_trade_amount');
-      const minCopyTradeAmount = minCopyTradeSetting ? parseFloat(minCopyTradeSetting.setting_value) || 50 : 50;
+      // Use default minimum copy trade amount
+      const minCopyTradeAmount = 50;
 
       // Check if user has sufficient balance
       if (minCopyTradeAmount > (user.trading_wallet || 0)) {
@@ -530,13 +624,22 @@ export default function TradingPlatform() {
         opened_date: new Date().toISOString()
       };
 
-      await TradingPosition.create(positionData);
+      const { error: positionError } = await supabase
+        .from('trading_positions')
+        .insert(positionData);
+
+      if (positionError) throw positionError;
 
       // Deduct amount from trading wallet
-      await User.update(user.id, {
-        trading_wallet: (user.trading_wallet || 0) - minCopyTradeAmount,
-        total_balance: (user.total_balance || 0) - minCopyTradeAmount
-      });
+      const { error: userError } = await supabase
+        .from('users')
+        .update({
+          trading_wallet: (user.trading_wallet || 0) - minCopyTradeAmount,
+          total_balance: (user.total_balance || 0) - minCopyTradeAmount
+        })
+        .eq('id', user.id);
+
+      if (userError) throw userError;
 
       showFeedback('success', 'Copy Trade Started!', `Now copying ${trader.name}'s trades with ${randomSymbol.symbol} (${formatCurrency(minCopyTradeAmount)}).`);
       loadData(); // Refresh data
@@ -545,6 +648,17 @@ export default function TradingPlatform() {
       showFeedback('error', 'Copy Trade Failed', 'Failed to start copy trading. Please try again.');
     }
   };
+
+  if (!authUser || !userProfile) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading authentication...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -630,9 +744,9 @@ export default function TradingPlatform() {
               <span className="hidden md:inline">Expert Traders</span>
               <CopyIcon className="w-4 h-4 md:hidden" />
             </TabsTrigger>
-            <TabsTrigger value="open-positions" className="flex items-center gap-2">
+            <TabsTrigger value="positions" className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4" />
-              <span className="hidden md:inline">Open Positions</span>
+              <span className="hidden md:inline">Positions</span>
               <span className="md:hidden">Positions</span>
             </TabsTrigger>
           </TabsList>
@@ -676,46 +790,48 @@ export default function TradingPlatform() {
               <Card className="p-6 bg-white">
                 <h3 className="text-lg font-semibold mb-4">Select Instrument</h3>
                 <div className="space-y-2">
-                  {instruments.map((instrument) => (
-                    <div key={instrument.id}>
-                      <div
-                        className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                          selectedInstrument?.id === instrument.id 
-                            ? 'bg-blue-600 text-white' 
-                            : 'bg-gray-50 hover:bg-gray-100'
-                        }`}
-                        onClick={() => handleInstrumentSelect(instrument)}
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="text-lg">{instrument.icon}</span>
-                          <div className="flex-1">
-                            <div className="font-semibold">{instrument.name}</div>
-                            <div className={`text-sm ${
-                              selectedInstrument?.id === instrument.id ? 'text-blue-100' : 'text-gray-500'
-                            }`}>
-                              {instrument.description}
+                  {instruments && instruments.length > 0 ? (
+                    instruments.map((instrument) => (
+                      <div key={instrument.id}>
+                        <div
+                          className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                            selectedInstrument?.id === instrument.id 
+                              ? 'bg-blue-600 text-white' 
+                              : 'bg-gray-50 hover:bg-gray-100'
+                          }`}
+                          onClick={() => handleInstrumentSelect(instrument)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-lg">{instrument.icon || '📈'}</span>
+                            <div className="flex-1">
+                              <div className="font-semibold">{instrument.name}</div>
+                              <div className={`text-sm ${
+                                selectedInstrument?.id === instrument.id ? 'text-blue-100' : 'text-gray-500'
+                              }`}>
+                                {instrument.description || 'No description'}
+                              </div>
                             </div>
                           </div>
                         </div>
+                        
+                        {/* View Symbols Button */}
+                        <div className="mt-2 px-3">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="w-full text-xs text-blue-600 hover:bg-blue-50"
+                            onClick={() => handleViewSymbols(instrument)}
+                          >
+                            View Symbols ({symbols.filter(s => s.instrument_id === instrument.id).length})
+                          </Button>
+                        </div>
                       </div>
-                      
-                      {/* View Symbols Button */}
-                      <div className="mt-2 px-3">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="w-full text-xs text-blue-600 hover:bg-blue-50"
-                          onClick={() => handleViewSymbols(instrument)}
-                        >
-                          View Symbols ({symbols.filter(s => s.instrument_id === instrument.id).length})
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                  {instruments.length === 0 && (
+                    ))
+                  ) : (
                     <div className="text-center py-8 text-gray-500">
                       <BarChart3 className="w-12 h-12 mx-auto mb-4 text-gray-300" />
                       <p>No trading instruments available</p>
+                      <p className="text-xs mt-1">Instruments loaded: {instruments?.length || 0}</p>
                     </div>
                   )}
                 </div>
@@ -743,7 +859,7 @@ export default function TradingPlatform() {
                               <div className={`text-sm ${
                                 selectedSymbol?.id === symbol.id ? 'text-green-100' : 'text-gray-500'
                               }`}>
-                                {symbol.name}
+                                {symbol.name || 'No name'}
                               </div>
                             </div>
                             <div className="text-right">
@@ -757,6 +873,8 @@ export default function TradingPlatform() {
                       <div className="text-center py-8 text-gray-500">
                         <p>No assets available</p>
                         <p className="text-xs">for this instrument</p>
+                        <p className="text-xs mt-1">Symbols loaded: {symbols?.length || 0}</p>
+                        <p className="text-xs">Filtered: {filteredSymbols?.length || 0}</p>
                       </div>
                     )
                   ) : (
@@ -824,34 +942,99 @@ export default function TradingPlatform() {
             </div>
           </TabsContent>
 
-          {/* Open Positions Tab */}
-          <TabsContent value="open-positions" className="mt-6">
+          {/* Positions Tab */}
+          <TabsContent value="positions" className="mt-6">
             <div className="mb-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-2">Open Positions ({positions.length})</h2>
-              <p className="text-sm text-gray-500">Monitor and manage your active trading positions</p>
+              <h2 className="text-xl font-bold text-gray-900 mb-2">Positions</h2>
+              <p className="text-sm text-gray-500">Monitor and manage your trading positions</p>
             </div>
 
-            {positions.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {positions.map((position) => (
-                  <PositionCard 
-                    key={position.id} 
-                    position={position}
-                    onClose={handleClosePosition}
-                    onPause={handlePausePosition}
-                    onModify={handleModifyPosition}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12">
-                <div className="text-center">
-                  <BarChart3 className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Open Positions</h3>
-                  <p className="text-gray-500">No open positions</p>
-                </div>
-              </div>
-            )}
+            <Tabs defaultValue="open" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-6">
+                <TabsTrigger value="open">Open Positions ({positions.length})</TabsTrigger>
+                <TabsTrigger value="closed">Closed Positions ({closedPositions.length})</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="open" className="mt-0">
+                {positions.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {positions.map((position) => (
+                      <PositionCard 
+                        key={position.id} 
+                        position={position}
+                        onClose={handleClosePosition}
+                        onPause={handlePausePosition}
+                        onModify={handleModifyPosition}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="text-center">
+                      <BarChart3 className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Open Positions</h3>
+                      <p className="text-gray-500">No open positions</p>
+                    </div>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="closed" className="mt-0">
+                {closedPositions.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {closedPositions.map((position) => (
+                      <Card key={position.id} className="p-4 bg-white border border-gray-200">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <Badge variant={position.trade_direction === 'BUY' ? 'default' : 'secondary'} className="text-xs">
+                              {position.trade_direction}
+                            </Badge>
+                            <span className="font-semibold">{position.symbol_code}</span>
+                            <span className="text-xs text-gray-500">({position.leverage})</span>
+                            <Badge variant="outline" className="text-xs text-gray-600 border-gray-200">
+                              Closed
+                            </Badge>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Amount:</span>
+                            <span className="font-semibold">{formatCurrency(position.investment_amount)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Entry:</span>
+                            <span>{formatCurrency(position.entry_price)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Exit:</span>
+                            <span>{formatCurrency(position.current_price)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Final P&L:</span>
+                            <span className={`font-semibold ${position.profit_loss_amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {position.profit_loss_amount >= 0 ? '+' : ''}{formatCurrency(position.profit_loss_amount)} ({position.profit_loss_amount >= 0 ? '+' : ''}{((position.profit_loss_amount / position.investment_amount) * 100).toFixed(2)}%)
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Closed:</span>
+                            <span className="text-xs">{new Date(position.closed_date).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="text-center">
+                      <BarChart3 className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Closed Positions</h3>
+                      <p className="text-gray-500">No closed positions</p>
+                    </div>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           </TabsContent>
         </Tabs>
       </main>
