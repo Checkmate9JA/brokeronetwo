@@ -10,10 +10,13 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from '@/lib/supabase';
 import { Plus, Edit, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
+import DeleteConfirmationModal from './DeleteConfirmationModal';
 
 export default function ViewSymbolsModal({ isOpen, onClose, instrument, onAddSymbol, onEditSymbol, onDeleteSymbol }) {
   const [symbols, setSymbols] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [symbolToDelete, setSymbolToDelete] = useState(null);
 
   useEffect(() => {
     if (isOpen && instrument) {
@@ -55,24 +58,33 @@ export default function ViewSymbolsModal({ isOpen, onClose, instrument, onAddSym
     onClose();
   };
 
-  const handleDeleteSymbol = async (symbol) => {
-    if (confirm(`Are you sure you want to delete the symbol "${symbol.symbol}"?`)) {
-      try {
-        const { error } = await supabase
-          .from('trading_symbols')
-          .delete()
-          .eq('id', symbol.id);
+  const handleDeleteSymbol = (symbol) => {
+    setSymbolToDelete(symbol);
+    setIsDeleteModalOpen(true);
+  };
 
-        if (error) {
-          console.error('Error deleting symbol:', error);
-          throw error;
-        }
+  const confirmDeleteSymbol = async () => {
+    if (!symbolToDelete) return;
+    
+    try {
+      const { error } = await supabase
+        .from('trading_symbols')
+        .delete()
+        .eq('id', symbolToDelete.id);
 
-        // Reload symbols
-        loadSymbols();
-      } catch (error) {
-        console.error('Failed to delete symbol:', error);
+      if (error) {
+        console.error('Error deleting symbol:', error);
+        throw error;
       }
+
+      // Reload symbols
+      loadSymbols();
+      setIsDeleteModalOpen(false);
+      setSymbolToDelete(null);
+    } catch (error) {
+      console.error('Failed to delete symbol:', error);
+      setIsDeleteModalOpen(false);
+      setSymbolToDelete(null);
     }
   };
 
@@ -200,6 +212,18 @@ export default function ViewSymbolsModal({ isOpen, onClose, instrument, onAddSym
           )}
         </div>
       </DialogContent>
+      
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setSymbolToDelete(null);
+        }}
+        onConfirm={confirmDeleteSymbol}
+        title="Delete Symbol"
+        description={`Are you sure you want to delete the symbol "${symbolToDelete?.symbol}"? This action cannot be undone.`}
+      />
     </Dialog>
   );
 }
