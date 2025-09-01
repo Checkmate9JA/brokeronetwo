@@ -128,10 +128,10 @@ export default function AdminAuth() {
           </p>
         </div>
 
-        <Card>
+        <Card className="bg-white border border-gray-200">
           <CardHeader>
-            <CardTitle className="text-center">Admin Authentication</CardTitle>
-            <CardDescription className="text-center">
+            <CardTitle className="text-center text-gray-900">Admin Authentication</CardTitle>
+            <CardDescription className="text-center text-gray-600">
               Enter your admin credentials
             </CardDescription>
           </CardHeader>

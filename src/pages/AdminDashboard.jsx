@@ -30,6 +30,9 @@ import CopyTradeManagementModal from '../components/modals/CopyTradeManagementMo
 import TransactionsManagementModal from '../components/modals/TransactionsManagementModal';
 import AccountModal from '../components/modals/AccountModal';
 import MinimumInvestmentModal from '../components/modals/MinimumInvestmentModal';
+import CopyTradeSettingsModal from '../components/modals/CopyTradeSettingsModal';
+import TradingLossSettingsModal from '../components/modals/TradingLossSettingsModal';
+import WhatsAppLiveChatModal from '../components/modals/WhatsAppLiveChatModal';
 import {
   Sheet,
   SheetContent,
@@ -38,23 +41,13 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function AdminDashboard() {
+  const { userProfile } = useAuth();
+  
   console.log('🔄 AdminDashboard component rendering...');
-  
-  // Simple test to ensure component renders
-  console.log('✅ Component function is executing');
-  
-  // Simple fallback to ensure component renders
-  if (typeof window === 'undefined') {
-    console.log('⚠️ Window is undefined, returning loading div');
-    return <div>Loading...</div>;
-  }
-  
-  console.log('✅ Window is defined, continuing with component');
-  
-  // Add immediate return to test if component renders at all
-  console.log('✅ About to declare state variables');
+  console.log('✅ userProfile from context:', userProfile);
   
   const [stats, setStats] = useState({
     totalUsers: 0,
@@ -72,11 +65,14 @@ export default function AdminDashboard() {
   const [isWithdrawalOptionModalOpen, setIsWithdrawalOptionModalOpen] = useState(false);
   const [isPaymentSettingsModalOpen, setIsPaymentSettingsModalOpen] = useState(false);
   const [isCopyTradeModalOpen, setIsCopyTradeModalOpen] = useState(false);
+  const [isCopyTradeSettingsModalOpen, setIsCopyTradeSettingsModalOpen] = useState(false);
   const [isTransactionsModalOpen, setIsTransactionsModalOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // Mobile nav state
   const [isMinimumInvestmentModalOpen, setIsMinimumInvestmentModalOpen] = useState(false);
+  const [isTradingLossSettingsModalOpen, setIsTradingLossSettingsModalOpen] = useState(false);
+  const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
 
   console.log('✅ All state variables declared successfully');
 
@@ -87,47 +83,13 @@ export default function AdminDashboard() {
     };
   }, []);
 
+  // Use userProfile from context instead of fetching
   useEffect(() => {
-    const initialize = async () => {
-      try {
-        console.log('🔍 Initializing AdminDashboard...');
-        // Get current user from Supabase auth
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
-        
-        if (authError) {
-          console.error('❌ Auth error:', authError);
-          setError(`Authentication error: ${authError.message}`);
-          return;
-        }
-        
-        if (user) {
-          console.log('✅ User authenticated:', user.email);
-          // Fetch user profile from users table
-          const { data: userProfile, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('email', user.email)
-            .single();
-          
-          if (error) {
-            console.error('❌ Error fetching user profile:', error);
-            setError(`Profile fetch error: ${error.message}`);
-            setCurrentUser(user);
-          } else {
-            console.log('✅ User profile loaded:', userProfile);
-            setCurrentUser(userProfile);
-          }
-        } else {
-          console.log('⚠️ No user authenticated');
-          setError('No user authenticated');
-        }
-      } catch (error) {
-        console.error('❌ Error initializing admin dashboard:', error);
-        setError(`Initialization error: ${error.message}`);
-      }
-    };
-    initialize();
-  }, []);
+    if (userProfile && !currentUser) {
+      console.log('✅ Using userProfile from context');
+      setCurrentUser(userProfile);
+    }
+  }, [userProfile, currentUser]);
 
   useEffect(() => {
     if (currentUser) {
@@ -252,54 +214,31 @@ export default function AdminDashboard() {
     { icon: Settings, title: 'Payment Settings', action: () => setIsPaymentSettingsModalOpen(true) },
     { icon: TrendingUp, title: 'Trading Management', href: 'TradingManagement' },
     { icon: CopyIcon, title: 'Copy/Expert Trade Management', action: () => setIsCopyTradeModalOpen(true) },
+    { icon: Settings, title: 'Copy Trade Settings', action: () => setIsCopyTradeSettingsModalOpen(true) },
     { icon: DollarSign, title: 'Minimum Investment Settings', action: () => setIsMinimumInvestmentModalOpen(true) },
     { icon: Wallet, title: 'Manage Wallets', href: 'AdminManageWallets' },
     { icon: Mail, title: 'Email Management', href: 'AdminEmailManagement' },
-    { icon: FileText, title: 'Transactions Management', action: () => setIsTransactionsModalOpen(true) }
+    { icon: MessageCircle, title: 'WhatsApp/Live Chat Settings', action: () => setIsWhatsAppModalOpen(true) },
+    { icon: FileText, title: 'Transactions Management', action: () => setIsTransactionsModalOpen(true) },
+    { icon: Settings, title: 'Trading Loss Settings', action: () => setIsTradingLossSettingsModalOpen(true) }
   ];
 
-  // Add a simple fallback UI to ensure something renders
-  if (!currentUser && !isLoading && !error) {
+  // Show loading only if we don't have userProfile yet
+  if (!userProfile) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Initializing Admin Dashboard...</p>
+          <p className="text-gray-600">Loading Admin Dashboard...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Simple Loading State */}
-      {!currentUser && isLoading && (
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading Admin Dashboard...</p>
-          </div>
-        </div>
-      )}
-
-      {/* No User State */}
-      {!currentUser && !isLoading && (
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h2>
-            <p className="text-red-800 mb-6">You must be logged in to access the admin dashboard.</p>
-            <Button 
-              onClick={() => window.location.href = '/AdminAuth'} 
-              className="text-red-600 border-red-200 hover:bg-red-50"
-            >
-              Go to Login
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Main Dashboard Content - Only show when user is authenticated */}
-      {currentUser && (
+    <div className="min-h-screen bg-gray-50 admin-page">
+             {/* Main Dashboard Content - Only show when user is authenticated */}
+       {userProfile && (
         <>
           {/* Header */}
           <header className="bg-white border-b border-gray-200 px-4 lg:px-8 py-4 sticky top-0 z-50">
@@ -335,10 +274,10 @@ export default function AdminDashboard() {
                     User
                   </Button>
                 </Link>
-                <Button variant="ghost" size="sm" onClick={() => setIsAccountModalOpen(true)} className="text-gray-600">
-                  <UserIcon className="w-4 h-4 mr-2" />
-                  Account
-                </Button>
+                               <Button variant="ghost" size="sm" onClick={() => setIsAccountModalOpen(true)} className="text-gray-600">
+                 <UserIcon className="w-4 h-4 mr-2" />
+                 {userProfile?.full_name || 'Account'}
+               </Button>
                 <Button variant="outline" size="sm" onClick={handleLogout} className="text-red-600 border-red-200 hover:bg-red-50">
                   <LogOut className="w-4 h-4 mr-2" />
                   Logout
@@ -375,17 +314,17 @@ export default function AdminDashboard() {
                         </Button>
                       </Link>
                       
-                      <Button 
-                        variant="ghost" 
-                        onClick={() => {
-                          setIsAccountModalOpen(true);
-                          setIsMobileMenuOpen(false);
-                        }} 
-                        className="justify-start text-gray-600"
-                      >
-                        <UserIcon className="w-4 h-4 mr-2" />
-                        Account
-                      </Button>
+                                             <Button 
+                         variant="ghost" 
+                         onClick={() => {
+                           setIsAccountModalOpen(true);
+                           setIsMobileMenuOpen(false);
+                         }} 
+                         className="justify-start text-gray-600"
+                       >
+                         <UserIcon className="w-4 h-4 mr-2" />
+                         {userProfile?.full_name || 'Account'}
+                       </Button>
 
                       <Button 
                         variant="outline" 
@@ -548,13 +487,17 @@ export default function AdminDashboard() {
                 ))}
               </div>
             </div>
+
+            {/* Maintenance Mode Control */}
+            {/* Removed Maintenance Mode Control */}
           </main>
 
           {/* Modals */}
-          <AccountModal
-            isOpen={isAccountModalOpen}
-            onClose={() => setIsAccountModalOpen(false)}
-          />
+                     <AccountModal
+             isOpen={isAccountModalOpen}
+             onClose={() => setIsAccountModalOpen(false)}
+             userProfile={userProfile}
+           />
           <WithdrawalOptionModal
             isOpen={isWithdrawalOptionModalOpen}
             onClose={() => setIsWithdrawalOptionModalOpen(false)}
@@ -575,6 +518,19 @@ export default function AdminDashboard() {
             isOpen={isMinimumInvestmentModalOpen}
             onClose={() => setIsMinimumInvestmentModalOpen(false)}
           />
+          <CopyTradeSettingsModal
+            isOpen={isCopyTradeSettingsModalOpen}
+            onClose={() => setIsCopyTradeSettingsModalOpen(false)}
+          />
+          <TradingLossSettingsModal
+            isOpen={isTradingLossSettingsModalOpen}
+            onClose={() => setIsTradingLossSettingsModalOpen(false)}
+          />
+          <WhatsAppLiveChatModal
+            isOpen={isWhatsAppModalOpen}
+            onClose={() => setIsWhatsAppModalOpen(false)}
+          />
+          {/* Removed MaintenanceModeControl */}
         </>
       )}
     </div>

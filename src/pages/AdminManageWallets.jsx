@@ -8,7 +8,7 @@ import { Plus, Search, Edit, Trash, ArrowLeft, RefreshCw, CheckCircle, XCircle }
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { supabase } from '@/lib/supabase';
-import { getWalletIconDisplayUrl, getWalletIconUrlSync } from '@/utils/walletIconDisplay';
+import { getWalletIconDisplayUrl, getWalletIconUrlSync, hasWalletIcon, getWalletFallbackDisplay } from '@/utils/walletIconDisplay';
 import AddWalletModal from '../components/modals/AddWalletModal';
 import EditWalletModal from '../components/modals/EditWalletModal';
 import FeedbackModal from '../components/modals/FeedbackModal';
@@ -250,7 +250,7 @@ export default function AdminManageWallets() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 admin-page">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-4 lg:px-8 py-6">
         <div className="max-w-7xl mx-auto">
@@ -320,7 +320,7 @@ export default function AdminManageWallets() {
               <Card key={wallet.id} className="p-6">
                 <div className="text-center mb-4">
                   <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center overflow-hidden">
-                    {getWalletIconUrlSync(wallet) ? (
+                    {hasWalletIcon(wallet) ? (
                       <img 
                         src={getWalletIconUrlSync(wallet)} 
                         alt={wallet.name}
@@ -332,9 +332,9 @@ export default function AdminManageWallets() {
                       />
                     ) : null}
                     <div 
-                      className={`w-12 h-12 bg-gray-200 rounded-full items-center justify-center text-gray-500 text-lg font-semibold ${getWalletIconUrlSync(wallet) ? 'hidden' : 'flex'}`}
+                      className={`w-12 h-12 bg-gray-200 rounded-full items-center justify-center text-gray-500 text-lg font-semibold ${hasWalletIcon(wallet) ? 'hidden' : 'flex'}`}
                     >
-                      {wallet.name.charAt(0)}
+                      {getWalletFallbackDisplay(wallet)}
                     </div>
                   </div>
                   

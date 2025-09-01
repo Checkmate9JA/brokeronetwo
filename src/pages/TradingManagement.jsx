@@ -125,7 +125,7 @@ export default function TradingManagement() {
 
 
     return (
-        <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+        <div className="min-h-screen bg-gray-50 p-4 md:p-8 admin-page">
             <div className="max-w-7xl mx-auto">
                 {/* Check if user is authenticated */}
                 {!user || !userProfile ? (

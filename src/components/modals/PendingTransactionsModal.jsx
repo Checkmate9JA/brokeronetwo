@@ -175,31 +175,31 @@ export default function PendingTransactionsModal({ isOpen, onClose, user }) {
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-3xl max-w-[90vw] max-h-[85vh] flex flex-col">
-          <DialogHeader className="flex flex-row items-center justify-between sticky top-0 bg-white z-10 pb-4 border-b">
+        <DialogContent className="sm:max-w-3xl max-w-[90vw] max-h-[85vh] flex flex-col bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+          <DialogHeader className="flex flex-row items-center justify-between sticky top-0 bg-white dark:bg-gray-800 z-10 pb-4 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-2">
               <Clock className="w-5 h-5 text-blue-600" />
-              <DialogTitle className="text-xl font-bold">Pending Transactions</DialogTitle>
+              <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white">Pending Transactions</DialogTitle>
             </div>
           </DialogHeader>
 
           <div className="flex-1 overflow-hidden">
             <Tabs defaultValue="pending" className="w-full h-full flex flex-col">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger 
-                  value="pending" 
-                  className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
-                >
-                  <Clock className="w-4 h-4" />
-                  Pending ({pendingDeposits.length + pendingWithdrawals.length})
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="rejected"
-                  className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
-                >
-                  <X className="w-4 h-4" />
-                  Rejected ({rejectedDeposits.length + rejectedWithdrawals.length})
-                </TabsTrigger>
+                                 <TabsTrigger 
+                   value="pending" 
+                   className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-sm"
+                 >
+                   <Clock className="w-4 h-4" />
+                   <span className="data-[state=active]:text-gray-900 dark:data-[state=active]:text-white">Pending ({pendingDeposits.length + pendingWithdrawals.length})</span>
+                 </TabsTrigger>
+                 <TabsTrigger 
+                   value="rejected"
+                   className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-sm"
+                 >
+                   <X className="w-4 h-4" />
+                   <span className="data-[state=active]:text-gray-900 dark:data-[state=active]:text-white">Rejected ({rejectedDeposits.length + rejectedWithdrawals.length})</span>
+                 </TabsTrigger>
               </TabsList>
 
               <TabsContent value="pending" className="mt-6 flex-1 overflow-auto">
@@ -208,31 +208,31 @@ export default function PendingTransactionsModal({ isOpen, onClose, user }) {
                   <div>
                     <div className="flex items-center gap-2 mb-4">
                       <ArrowDownLeft className="w-4 h-4 text-green-600" />
-                      <h3 className="font-semibold text-gray-900">Pending Deposits ({pendingDeposits.length})</h3>
+                      <h3 className="font-semibold text-gray-900 dark:text-white">Pending Deposits ({pendingDeposits.length})</h3>
                     </div>
                     {isLoading ? (
-                      <div className="p-4 bg-gray-50 rounded-lg text-center text-gray-500">
+                      <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg text-center text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600">
                         Loading pending deposits...
                       </div>
                     ) : pendingDeposits.length > 0 ? (
                       <div className="space-y-2">
                         {pendingDeposits.map((deposit) => (
-                          <div key={deposit.id} className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                          <div key={deposit.id} className="p-4 bg-green-50 dark:bg-orange-50 border border-green-200 dark:border-orange-200 rounded-lg">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
                                 <ArrowDownLeft className="w-4 h-4 text-green-600" />
                                 <div>
-                                  <div className="font-semibold">{formatAmount(deposit.amount)}</div>
-                                  <div className="text-sm text-gray-600">{formatDate(deposit.created_at || deposit.created_date)}</div>
+                                  <div className="font-semibold dark:text-gray-900">{formatAmount(deposit.amount)}</div>
+                                  <div className="text-sm text-gray-600 dark:text-gray-900">{formatDate(deposit.created_at || deposit.created_date)}</div>
                                 </div>
                               </div>
-                              <Badge className="bg-orange-100 text-orange-800">Pending</Badge>
+                              <Badge className="bg-orange-100 dark:bg-green-100 text-orange-800 dark:text-green-800">Pending</Badge>
                             </div>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <div className="p-4 bg-gray-50 rounded-lg text-center text-gray-500">
+                      <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg text-center text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600">
                         No pending deposits
                       </div>
                     )}
@@ -242,31 +242,31 @@ export default function PendingTransactionsModal({ isOpen, onClose, user }) {
                   <div>
                     <div className="flex items-center gap-2 mb-4">
                       <ArrowUpRight className="w-4 h-4 text-orange-600" />
-                      <h3 className="font-semibold text-gray-900">Pending Withdrawals ({pendingWithdrawals.length})</h3>
+                      <h3 className="font-semibold text-gray-900 dark:text-white">Pending Withdrawals ({pendingWithdrawals.length})</h3>
                     </div>
                     {isLoading ? (
-                      <div className="p-4 bg-gray-50 rounded-lg text-center text-gray-500">
+                      <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg text-center text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600">
                         Loading pending withdrawals...
                       </div>
                     ) : pendingWithdrawals.length > 0 ? (
                       <div className="space-y-2">
                         {pendingWithdrawals.map((withdrawal) => (
-                          <div key={withdrawal.id} className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                          <div key={withdrawal.id} className="p-4 bg-orange-50 dark:bg-orange-50 border border-orange-200 dark:border-orange-200 rounded-lg">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
                                 <ArrowUpRight className="w-4 h-4 text-orange-600" />
                                 <div>
-                                  <div className="font-semibold">{formatAmount(withdrawal.amount)}</div>
-                                  <div className="text-sm text-gray-600">{formatDate(withdrawal.created_at || withdrawal.created_date)}</div>
+                                  <div className="font-semibold dark:text-gray-900">{formatAmount(withdrawal.amount)}</div>
+                                  <div className="text-sm text-gray-600 dark:text-gray-900">{formatDate(withdrawal.created_at || withdrawal.created_date)}</div>
                                 </div>
                               </div>
-                              <Badge className="bg-orange-100 text-orange-800">Pending</Badge>
+                              <Badge className="bg-orange-100 dark:bg-green-100 text-orange-800 dark:text-green-800">Pending</Badge>
                             </div>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <div className="p-4 bg-gray-50 rounded-lg text-center text-gray-500">
+                      <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg text-center text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600">
                         No pending withdrawals
                       </div>
                     )}
@@ -293,24 +293,24 @@ export default function PendingTransactionsModal({ isOpen, onClose, user }) {
                   <div>
                     <div className="flex items-center gap-2 mb-4">
                       <ArrowDownLeft className="w-4 h-4 text-red-600" />
-                      <h3 className="font-semibold text-gray-900">Rejected Deposits ({rejectedDeposits.length})</h3>
+                      <h3 className="font-semibold text-gray-900 dark:text-white">Rejected Deposits ({rejectedDeposits.length})</h3>
                     </div>
                     {isLoading ? (
-                      <div className="p-4 bg-gray-50 rounded-lg text-center text-gray-500">
+                      <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg text-center text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600">
                         Loading rejected deposits...
                       </div>
                     ) : rejectedDeposits.length > 0 ? (
                       <div className="space-y-2">
                         {rejectedDeposits.map((deposit) => (
-                          <div key={deposit.id} className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                          <div key={deposit.id} className="p-4 bg-red-50 dark:bg-orange-50 border border-red-200 dark:border-orange-200 rounded-lg">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
                                 <ArrowDownLeft className="w-4 h-4 text-red-600" />
                                 <div>
-                                  <div className="font-semibold">{formatAmount(deposit.amount)}</div>
-                                  <div className="text-sm text-gray-600">{formatDate(deposit.created_at || deposit.created_date)}</div>
+                                  <div className="font-semibold dark:text-gray-900">{formatAmount(deposit.amount)}</div>
+                                  <div className="text-sm text-gray-600 dark:text-gray-900">{formatDate(deposit.created_at || deposit.created_date)}</div>
                                   <div className="flex items-center gap-2 mt-1">
-                                    <span className="text-xs text-red-600">⚠ Rejected</span>
+                                    <span className="text-xs text-red-600 dark:text-gray-900">⚠ Rejected</span>
                                     <ViewReasonTooltip reason={deposit.rejection_reason} />
                                   </div>
                                 </div>
@@ -321,7 +321,7 @@ export default function PendingTransactionsModal({ isOpen, onClose, user }) {
                         ))}
                       </div>
                     ) : (
-                      <div className="p-4 bg-gray-50 rounded-lg text-center text-gray-500">
+                      <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg text-center text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600">
                         No rejected deposits
                       </div>
                     )}
@@ -331,24 +331,24 @@ export default function PendingTransactionsModal({ isOpen, onClose, user }) {
                   <div>
                     <div className="flex items-center gap-2 mb-4">
                       <ArrowUpRight className="w-4 h-4 text-red-600" />
-                      <h3 className="font-semibold text-gray-900">Rejected Withdrawals ({rejectedWithdrawals.length})</h3>
+                      <h3 className="font-semibold text-gray-900 dark:text-white">Rejected Withdrawals ({rejectedWithdrawals.length})</h3>
                     </div>
                     {isLoading ? (
-                      <div className="p-4 bg-gray-50 rounded-lg text-center text-gray-500">
+                      <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg text-center text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600">
                         Loading rejected withdrawals...
                       </div>
                     ) : rejectedWithdrawals.length > 0 ? (
                       <div className="space-y-2">
                         {rejectedWithdrawals.map((withdrawal) => (
-                          <div key={withdrawal.id} className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                          <div key={withdrawal.id} className="p-4 bg-red-50 dark:bg-orange-50 border border-red-200 dark:border-orange-200 rounded-lg">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
                                 <ArrowUpRight className="w-4 h-4 text-red-600" />
                                 <div>
-                                  <div className="font-semibold">{formatAmount(withdrawal.amount)}</div>
-                                  <div className="text-sm text-gray-600">{formatDate(withdrawal.created_at || withdrawal.created_date)}</div>
+                                  <div className="font-semibold dark:text-gray-900">{formatAmount(withdrawal.amount)}</div>
+                                  <div className="text-sm text-gray-600 dark:text-gray-900">{formatDate(withdrawal.created_at || withdrawal.created_date)}</div>
                                   <div className="flex items-center gap-2 mt-1">
-                                    <span className="text-xs text-red-600">⚠ Rejected</span>
+                                    <span className="text-xs text-red-600 dark:text-gray-900">⚠ Rejected</span>
                                     <ViewReasonTooltip reason={withdrawal.rejection_reason} />
                                   </div>
                                 </div>
@@ -359,7 +359,7 @@ export default function PendingTransactionsModal({ isOpen, onClose, user }) {
                         ))}
                       </div>
                     ) : (
-                      <div className="p-4 bg-gray-50 rounded-lg text-center text-gray-500">
+                      <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg text-center text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600">
                         No rejected withdrawals
                       </div>
                     )}

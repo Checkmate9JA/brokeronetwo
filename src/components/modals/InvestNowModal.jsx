@@ -203,9 +203,9 @@ export default function InvestNowModal({ isOpen, onClose, plan, user, onSuccess,
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Invest in {plan.name}</DialogTitle>
+      <DialogContent className="sm:max-w-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+        <DialogHeader className="border-b border-gray-200 dark:border-gray-700 pb-4">
+          <DialogTitle className="text-gray-900 dark:text-white">Invest in {plan.name}</DialogTitle>
         </DialogHeader>
         
         <div className="space-y-4">
@@ -216,31 +216,31 @@ export default function InvestNowModal({ isOpen, onClose, plan, user, onSuccess,
             </AlertDescription>
           </Alert>
 
-          <div className="p-4 bg-gray-50 rounded-lg">
-            <div className="flex justify-between text-sm mb-2"><span>ROI:</span> <strong>{plan.roi_percentage}%</strong></div>
-            <div className="flex justify-between text-sm mb-2"><span>Duration:</span> <strong>{plan.duration_days} days</strong></div>
-            <div className="flex justify-between text-sm"><span>Min - Max:</span> <strong>{formatCurrency(plan.min_deposit)} - {formatCurrency(plan.max_deposit)}</strong></div>
+          <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+            <div className="flex justify-between text-sm mb-2"><span className="text-gray-600 dark:text-gray-300">ROI:</span> <strong className="dark:text-white">{plan.roi_percentage}%</strong></div>
+            <div className="flex justify-between text-sm mb-2"><span className="text-gray-600 dark:text-gray-300">Duration:</span> <strong className="dark:text-white">{plan.duration_days} days</strong></div>
+            <div className="flex justify-between text-sm"><span className="text-gray-600 dark:text-gray-300">Min - Max:</span> <strong className="dark:text-white">{formatCurrency(plan.min_deposit)} - {formatCurrency(plan.max_deposit)}</strong></div>
           </div>
           
           <div>
-            <Label htmlFor="amount">Investment Amount ($)</Label>
+            <Label htmlFor="amount" className="text-gray-900 dark:text-white">Investment Amount ($)</Label>
             <Input id="amount" type="number" value={amount} onChange={handleAmountChange} placeholder="Enter amount" />
             {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
           </div>
 
-          <div className="p-4 border rounded-lg">
-             <div className="flex justify-between text-sm mb-2"><span>Expected Profit:</span> <strong className="text-green-600">+{formatCurrency(calculated.profit)}</strong></div>
-             <div className="flex justify-between text-sm mb-2"><span>Total Return:</span> <strong>{formatCurrency(calculated.total)}</strong></div>
-             <div className="flex justify-between text-sm"><span>Maturity Date:</span> <strong>{calculated.maturity}</strong></div>
+          <div className="p-4 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700">
+             <div className="flex justify-between text-sm mb-2"><span className="text-gray-600 dark:text-gray-300">Expected Profit:</span> <strong className="text-green-600">+{formatCurrency(calculated.profit)}</strong></div>
+             <div className="flex justify-between text-sm mb-2"><span className="text-gray-600 dark:text-gray-300">Total Return:</span> <strong className="dark:text-white">{formatCurrency(calculated.total)}</strong></div>
+             <div className="flex justify-between text-sm"><span className="text-gray-600 dark:text-gray-300">Maturity Date:</span> <strong className="dark:text-white">{calculated.maturity}</strong></div>
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting || !!error}>
-            {isSubmitting ? 'Processing...' : 'Invest Now'}
-          </Button>
-        </DialogFooter>
+                 <DialogFooter className="border-t border-gray-200 dark:border-gray-700 pt-4">
+           <Button variant="outline" onClick={onClose} className="border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">Cancel</Button>
+           <Button onClick={handleSubmit} disabled={isSubmitting || !!error} className="bg-blue-600 hover:bg-blue-700">
+             {isSubmitting ? 'Processing...' : 'Invest Now'}
+           </Button>
+         </DialogFooter>
       </DialogContent>
     </Dialog>
   );

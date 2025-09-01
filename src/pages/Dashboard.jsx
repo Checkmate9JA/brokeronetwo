@@ -23,8 +23,7 @@ import {
   Loader2,
   Menu, // For mobile nav
   User as UserIcon, // For Account Icon
-  Shield, // For Admin View in mobile
-  Crown // For Super Admin View in mobile
+  Sun // For Theme icon
 } from 'lucide-react';
 import {
   Sheet,
@@ -53,9 +52,17 @@ import WalletValidated from '../components/modals/WalletValidated';
 import WalletActivationStatusModal from '../components/modals/WalletActivationStatusModal';
 import AccountModal from '../components/modals/AccountModal';
 import TradingViewChart from '../components/TradingViewChart';
+import CryptocurrencyMarket from '../components/CryptocurrencyMarket';
+import StockMarketData from '../components/StockMarketData';
+import SocialProof from '../components/SocialProof';
+import WhatsAppLiveChatIntegration from '../components/WhatsAppLiveChatIntegration';
 import { useLanguage } from '../components/LanguageProvider';
 import { useApp } from '../components/AppProvider';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import ThemeToggle from '../components/ThemeToggle';
+import { formatCurrency, getUserPreferredCurrency } from '@/utils/currencyUtils';
+import { useUserCurrency } from '@/hooks/useUserCurrency';
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
@@ -92,6 +99,8 @@ export default function Dashboard() {
   const { t } = useLanguage();
   const { appConfig } = useApp();
   const { user: authUser, userProfile, signOut } = useAuth();
+  const { toggleTheme } = useTheme();
+  const { userCurrency: currentUserCurrency } = useUserCurrency();
 
   // Debug logging to verify context
   console.log('Dashboard rendering with app:', appConfig);
@@ -105,7 +114,7 @@ export default function Dashboard() {
       console.log('Dashboard: No authenticated user or mock user detected, skipping data load');
       setIsLoading(false);
     }
-  }, [appConfig.id, authUser]); // Reload data when appConfig.id or authenticated user changes
+  }, [authUser?.id]); // Only reload when user ID changes, not on every render
 
   // Load activation fee from localStorage
   useEffect(() => {
@@ -128,48 +137,23 @@ export default function Dashboard() {
         throw new Error('No authenticated user found');
       }
       
-             // Fetch user profile from Supabase to get latest wallet balances
-       let updatedUser = null;
-       try {
-         console.log('🔍 Fetching user profile for:', currentUser.email);
-         const { data: userProfile, error: userError } = await supabase
-           .from('users')
-           .select('*')
-           .eq('email', currentUser.email)
-           .single();
-
-         if (userError) {
-           console.error('❌ Error fetching user profile:', userError);
-           if (userError.code === 'PGRST116') {
-             console.log('⚠️ User not found in database, redirecting to login');
-             // User doesn't exist in database, force logout
-             await signOut();
-             return;
-           }
-           // Use current user data if profile fetch fails, but don't create mock data
-           const correctTotalBalance = (currentUser.deposit_wallet || 0) + (currentUser.profit_wallet || 0) + (currentUser.trading_wallet || 0);
-           updatedUser = {
-             ...currentUser,
-             total_balance: correctTotalBalance
-           };
-         } else {
-           console.log('✅ User profile fetched successfully:', userProfile);
-           // Use fetched profile data from Supabase
-           const correctTotalBalance = (userProfile.deposit_wallet || 0) + (userProfile.profit_wallet || 0) + (userProfile.trading_wallet || 0);
-           updatedUser = {
-             ...userProfile,
-             total_balance: correctTotalBalance
-           };
-         }
-       } catch (err) {
-         console.error('❌ Exception in user profile fetch:', err);
-         console.log('User profile fetch failed, using current user data');
-         const correctTotalBalance = (currentUser.deposit_wallet || 0) + (currentUser.profit_wallet || 0) + (currentUser.trading_wallet || 0);
-         updatedUser = {
-           ...currentUser,
-           total_balance: correctTotalBalance
-         };
-       }
+      // Use userProfile from context if available, otherwise use authUser
+      let updatedUser = null;
+      if (userProfile) {
+        console.log('✅ Using userProfile from context');
+        const correctTotalBalance = (userProfile.deposit_wallet || 0) + (userProfile.profit_wallet || 0) + (userProfile.trading_wallet || 0);
+        updatedUser = {
+          ...userProfile,
+          total_balance: correctTotalBalance
+        };
+      } else {
+        console.log('⚠️ No userProfile, using authUser data');
+        const correctTotalBalance = (currentUser.deposit_wallet || 0) + (currentUser.profit_wallet || 0) + (currentUser.trading_wallet || 0);
+        updatedUser = {
+          ...currentUser,
+          total_balance: correctTotalBalance
+        };
+      }
       
              // Validate that we have a proper user object
        if (!updatedUser || !updatedUser.email) {
@@ -594,9 +578,9 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
       {/* Header */}
-      <header className="bg-white border-b border-gray-100 px-4 lg:px-8 py-4 sticky top-0 z-50">
+      <header className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 px-4 lg:px-8 py-4 sticky top-0 z-50 transition-colors">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center overflow-hidden">
@@ -609,10 +593,10 @@ export default function Dashboard() {
               )}
             </div>
             <div className="flex-1">
-                             <h1 className="text-lg md:text-xl font-bold text-gray-900">
+                             <h1 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white">
                  {t('welcome')}, {user?.full_name || 'User'}
                </h1>
-              <p className="text-sm text-gray-500">{appConfig.subtitle}</p>
+              <p className="text-sm text-gray-500 dark:text-white dark:font-semibold">{appConfig.subtitle}</p>
             </div>
           </div>
 
@@ -621,34 +605,12 @@ export default function Dashboard() {
             
             {user ? (
               <>
-                {user.role === 'admin' && (
-                  <Link to={createPageUrl('AdminDashboard')}>
-                    <Button variant="ghost" size="sm" className="text-gray-600">
-                      <Shield className="w-4 h-4 mr-2" />
-                      Admin
-                    </Button>
-                  </Link>
-                )}
-
-                {user && (user.role === 'admin' || user.role === 'superadmin') && (
-                  <Link to={createPageUrl('SuperAdminDashboard')}>
-                    <Button variant="ghost" size="sm" className="text-gray-600">
-                      <Crown className="w-4 h-4 mr-2" />
-                      Super Admin
-                    </Button>
-                  </Link>
-                )}
-
-                <Button variant="ghost" size="sm" onClick={debugDatabaseConnection} className="text-gray-600">
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Debug DB
-                </Button>
-
-                <Button variant="ghost" size="sm" onClick={() => setIsAccountModalOpen(true)} className="text-gray-600">
+                <ThemeToggle />
+                <Button variant="ghost" size="sm" onClick={() => setIsAccountModalOpen(true)} className="text-gray-600 dark:text-white">
                   <UserIcon className="w-4 h-4 mr-2" />
                   Account
                 </Button>
-                <Button variant="ghost" size="sm" onClick={handleLogout} className="text-gray-600">
+                <Button variant="ghost" size="sm" onClick={handleLogout} className="text-gray-600 dark:text-white">
                   <LogOut className="w-4 h-4 mr-2" />
                   Logout
                 </Button>
@@ -697,42 +659,13 @@ export default function Dashboard() {
                 <div className="grid gap-4 py-4">
                   {user ? (
                     <>
-                      {user.role === 'admin' && (
-                        <Link to={createPageUrl('AdminDashboard')} onClick={() => setIsMobileMenuOpen(false)}>
-                          <Button variant="outline" className="w-full justify-start text-blue-600 border-blue-200">
-                            <Shield className="w-4 h-4 mr-2" />
-                            Admin Dashboard
-                          </Button>
-                        </Link>
-                      )}
-                      {user && (user.role === 'admin' || user.role === 'superadmin') && (
-                        <Link to={createPageUrl('SuperAdminDashboard')} onClick={() => setIsMobileMenuOpen(false)}>
-                          <Button variant="outline" className="w-full justify-start text-purple-600 border-purple-200">
-                            <Crown className="w-4 h-4 mr-2" />
-                            Super Admin
-                          </Button>
-                        </Link>
-                      )}
-                      
                       <Button 
                         variant="outline" 
-                        onClick={() => {
-                          debugDatabaseConnection();
-                          setIsMobileMenuOpen(false);
-                        }} 
-                        className="justify-start text-blue-600 border-blue-200"
-                      >
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                        Debug Database
-                      </Button>
-                      
-                      <Button 
-                        variant="ghost" 
                         onClick={() => {
                           setIsAccountModalOpen(true);
                           setIsMobileMenuOpen(false);
                         }} 
-                        className="justify-start text-gray-600"
+                        className="justify-start text-gray-600 dark:text-white"
                       >
                         <UserIcon className="w-4 h-4 mr-2" />
                         Account
@@ -741,10 +674,22 @@ export default function Dashboard() {
                       <Button 
                         variant="outline" 
                         onClick={() => {
+                          toggleTheme();
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="justify-start text-gray-600 dark:text-white"
+                      >
+                        <Sun className="w-4 h-4 mr-2" />
+                        Dark/Light
+                      </Button>
+
+                      <Button 
+                        variant="outline" 
+                        onClick={() => {
                           handleLogout();
                           setIsMobileMenuOpen(false);
                         }} 
-                        className="justify-start text-red-600 border-red-200"
+                        className="justify-start text-red-600 dark:text-white border-red-200"
                       >
                         <LogOut className="w-4 h-4 mr-2" />
                         Logout
@@ -773,11 +718,11 @@ export default function Dashboard() {
 
       <main className="max-w-7xl mx-auto px-4 lg:px-8 py-8">
         {/* App Debug Info (can be removed later) */}
-        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg hidden">
-          <p className="text-sm">
+        <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg hidden">
+          <p className="text-sm dark:text-yellow-200">
             <strong>Debug:</strong> Current App: {appConfig.name} ({appConfig.id})
           </p>
-          <p className="text-xs text-gray-600">Subtitle: {appConfig.subtitle}</p>
+          <p className="text-xs text-gray-600 dark:text-yellow-300">Subtitle: {appConfig.subtitle}</p>
         </div>
 
         {/* Conditional Wallet Overview for App 1 ONLY */}
@@ -788,12 +733,14 @@ export default function Dashboard() {
               title={t('total_balance')}
               amount={user?.total_balance || 0.00}
               subtitle="All wallets combined"
+              userCurrency={currentUserCurrency}
             />
             <WalletCard
               type="deposit"
               title={t('deposit_wallet')}
               amount={user?.deposit_wallet || 0.00}
               subtitle="Available for trading"
+              userCurrency={currentUserCurrency}
             />
             <WalletCard
               type="profit"
@@ -801,12 +748,14 @@ export default function Dashboard() {
               amount={user?.profit_wallet || 0.00}
               subtitle="Trading profits"
               isProfit={true}
+              userCurrency={currentUserCurrency}
             />
             <WalletCard
               type="trading"
               title={t('trading_wallet')}
               amount={user?.trading_wallet || 0.00}
               subtitle="Active in trades"
+              userCurrency={currentUserCurrency}
             />
           </div>
         )}
@@ -815,24 +764,20 @@ export default function Dashboard() {
         {appConfig.id === 'app2' && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             {/* Account Balance Card (App 2) */}
-            <Card className="p-6 bg-blue-50 hover:shadow-md transition-all duration-300 border-gray-100 flex flex-col text-center">
+            <Card className="p-6 bg-blue-50 dark:bg-blue-900/20 hover:shadow-md transition-all duration-300 border-gray-100 dark:border-gray-700 flex flex-col text-center">
               <div className="flex-grow">
                 <div className="flex items-center justify-center gap-3 mb-2">
                    <div className="p-3 rounded-lg bg-blue-600">
                     <Wallet className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                     <h3 className="font-medium text-gray-700 text-sm text-left">Account Balance</h3>
-                     <p className="text-xs text-gray-500 text-left">Total available funds</p>
+                     <h3 className="font-medium text-gray-700 dark:text-blue-200 text-sm text-left">Account Balance</h3>
+                     <p className="text-xs text-gray-500 dark:text-blue-300 text-left">Total available funds</p>
                   </div>
                 </div>
                 
-                <div className="text-3xl font-bold text-gray-900 my-4">
-                  {new Intl.NumberFormat('en-US', {
-                    style: 'currency',
-                    currency: 'USD',
-                    minimumFractionDigits: 2
-                  }).format(user?.total_balance || 0)}
+                <div className="text-3xl font-bold text-gray-900 dark:text-white my-4">
+                  {formatCurrency(user?.total_balance || 0, currentUserCurrency)}
                 </div>
               </div>
               
@@ -945,6 +890,8 @@ export default function Dashboard() {
                 />
               </Link>
             )}
+
+
           </div>
         )}
 
@@ -986,18 +933,18 @@ export default function Dashboard() {
           {/* Left Column: Cards */}
           <div className="lg:col-span-1 space-y-6">
             {/* Pending Transactions Card */}
-            <Card className="bg-white">
-              <div className="p-6 border-b border-gray-100">
+            <Card className="bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700">
+              <div className="p-6 border-b border-gray-100 dark:border-gray-700">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                       <Clock className="w-5 h-5 text-blue-600" />
                       Pending Transactions
                     </h2>
-                    <p className="text-sm text-gray-500 mt-1">Review pending deposits and withdrawals</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Review pending deposits and withdrawals</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" className="text-gray-500" onClick={loadDashboardData}>
+                    <Button variant="ghost" size="icon" className="text-gray-500 dark:text-gray-400" onClick={loadDashboardData}>
                       <RefreshCw className="w-4 h-4" />
                     </Button>
                     <Button variant="outline" size="sm" onClick={() => setIsPendingTransactionsModalOpen(true)}>
@@ -1011,7 +958,7 @@ export default function Dashboard() {
                 {pendingTransactions.length > 0 ? (
                   <div className="space-y-3">
                     {pendingTransactions.slice(0, 3).map((transaction) => (
-                      <div key={transaction.id} className="flex items-center justify-between p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                      <div key={transaction.id} className="flex items-center justify-between p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
                         <div className="flex items-center gap-3">
                           {transaction.type === 'deposit' ? (
                             <ArrowDownLeft className="w-4 h-4 text-orange-600" />
@@ -1019,17 +966,17 @@ export default function Dashboard() {
                             <ArrowUpRight className="w-4 h-4 text-orange-600" />
                           )}
                           <div>
-                            <div className="font-semibold capitalize">{transaction.type}</div>
-                            <div className="text-sm text-gray-600">${transaction.amount?.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                            <div className="font-semibold capitalize dark:text-white">{transaction.type}</div>
+                            <div className="text-sm text-gray-600 dark:text-gray-300">{formatCurrency(transaction.amount, currentUserCurrency)}</div>
                           </div>
                         </div>
-                        <div className="text-sm text-orange-800 capitalize bg-orange-100 px-2 py-1 rounded-md">{transaction.status}</div>
+                        <div className="text-sm text-orange-800 dark:text-orange-200 capitalize bg-orange-100 dark:bg-orange-900/30 px-2 py-1 rounded-md">{transaction.status}</div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <Clock className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                    <Clock className="w-12 h-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
                     <p>No pending transactions</p>
                     <p className="text-sm mt-1">All transactions are up to date</p>
                   </div>
@@ -1038,15 +985,15 @@ export default function Dashboard() {
             </Card>
 
             {/* Transactions & Activities Card */}
-            <Card className="bg-white">
-              <div className="p-6 border-b border-gray-100">
+            <Card className="bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700">
+              <div className="p-6 border-b border-gray-100 dark:border-gray-700">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                       <Zap className="w-5 h-5 text-blue-600" />
                       Transactions & Activities
                     </h2>
-                    <p className="text-sm text-gray-500 mt-1">Recent account activities and transaction history</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Recent account activities and transaction history</p>
                   </div>
                   <div>
                     <Button variant="outline" size="sm" onClick={() => setIsAllTransactionsModalOpen(true)}>
@@ -1060,14 +1007,14 @@ export default function Dashboard() {
                 {transactions.length > 0 ? (
                   <div className="space-y-3">
                     {transactions.slice(0, 3).map((transaction) => (
-                      <div key={transaction.id} className="border border-gray-100 rounded-lg p-4">
+                      <div key={transaction.id} className="border border-gray-100 dark:border-gray-700 rounded-lg p-4">
                         <TransactionItem transaction={transaction} />
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <BarChart3 className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                    <BarChart3 className="w-12 h-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
                     <p>No transactions yet</p>
                     <p className="text-sm mt-1">Your transaction history will appear here</p>
                   </div>
@@ -1082,18 +1029,29 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Market Data Cards for Desktop - Positioned under TradingView chart */}
+        <div className="hidden lg:flex lg:gap-6 lg:mb-8">
+          <div className="w-1/3">
+            <CryptocurrencyMarket />
+          </div>
+          <div className="w-1/3">
+            <StockMarketData />
+          </div>
+
+        </div>
+
         {/* Mobile Layout: Stacked Cards */}
         <div className="lg:hidden space-y-6 mb-8">
           {/* Pending Transactions */}
-          <Card className="bg-white">
-            <div className="p-6 border-b border-gray-100">
+          <Card className="bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700">
+            <div className="p-6 border-b border-gray-100 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div className="flex-1">
-                  <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     <Clock className="w-5 h-5 text-blue-600" />
                     Pending Transactions
                   </h2>
-                  <p className="text-sm text-gray-500 mt-1">Review pending deposits and withdrawals</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Review pending deposits and withdrawals</p>
                   
                   {/* Mobile: Move controls under title */}
                   <div className="flex items-center gap-2 mt-2">
@@ -1112,7 +1070,7 @@ export default function Dashboard() {
               {pendingTransactions.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {pendingTransactions.map((transaction) => (
-                    <div key={transaction.id} className="flex items-center justify-between p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                    <div key={transaction.id} className="flex items-center justify-between p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
                       <div className="flex items-center gap-3">
                         {transaction.type === 'deposit' ? (
                           <ArrowDownLeft className="w-4 h-4 text-orange-600" />
@@ -1120,17 +1078,17 @@ export default function Dashboard() {
                           <ArrowUpRight className="w-4 h-4 text-orange-600" />
                         )}
                         <div>
-                          <div className="font-semibold capitalize">{transaction.type}</div>
-                          <div className="text-sm text-gray-600">${transaction.amount?.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                          <div className="font-semibold capitalize dark:text-white">{transaction.type}</div>
+                          <div className="text-sm text-gray-600 dark:text-gray-300">{formatCurrency(transaction.amount, currentUserCurrency)}</div>
                         </div>
                       </div>
-                      <div className="text-sm text-orange-800 capitalize bg-orange-100 px-2 py-1 rounded-md">{transaction.status}</div>
+                      <div className="text-sm text-orange-800 dark:text-orange-200 capitalize bg-orange-100 dark:bg-orange-900/30 px-2 py-1 rounded-md">{transaction.status}</div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <Clock className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  <Clock className="w-12 h-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
                   <p>No pending transactions</p>
                   <p className="text-sm mt-1">All transactions are up to date</p>
                 </div>
@@ -1139,15 +1097,15 @@ export default function Dashboard() {
           </Card>
           
           {/* Transactions & Activities */}
-          <Card className="bg-white">
-            <div className="p-6 border-b border-gray-100">
+          <Card className="bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700">
+            <div className="p-6 border-b border-gray-100 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div className="flex-1">
-                  <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     <Zap className="w-5 h-5 text-blue-600" />
                     <span>Transaction History</span>
                   </h2>
-                  <p className="text-sm text-gray-500 mt-1">Recent account activities and transaction history</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Recent account activities and transaction history</p>
                   
                   {/* Mobile: Move button under title */}
                   <div className="mt-2">
@@ -1177,6 +1135,14 @@ export default function Dashboard() {
               )}
             </div>
           </Card>
+
+          {/* Market Overview for Mobile */}
+          <TradingViewChart />
+
+          {/* Market Data Cards for Mobile */}
+          <CryptocurrencyMarket />
+          <StockMarketData />
+
         </div>
       </main>
 
@@ -1279,6 +1245,12 @@ export default function Dashboard() {
         title={feedback.title}
         message={feedback.message}
       />
+
+      {/* Social Proof Notifications */}
+      <SocialProof pageType="dashboard" />
+
+      {/* WhatsApp/LiveChat Integration */}
+      <WhatsAppLiveChatIntegration />
     </div>
   );
 }

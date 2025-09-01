@@ -12,7 +12,6 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Upload } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { UploadFile } from '@/api/integrations';
 
 export default function AddWalletModal({ isOpen, onClose, onSuccess }) {
   const [name, setName] = useState('');
@@ -37,6 +36,44 @@ export default function AddWalletModal({ isOpen, onClose, onSuccess }) {
     }
   };
 
+  const uploadIconToSupabase = async (file) => {
+    try {
+      // Get current user email for folder structure
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Generate unique filename
+      const timestamp = Date.now();
+      const fileExtension = file.name.split('.').pop();
+      const sanitizedName = name.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const fileName = `${sanitizedName}_${timestamp}.${fileExtension}`;
+      const filePath = `${user.email}/${fileName}`;
+
+      console.log('🖼️ Uploading wallet icon:', { fileName, filePath, userEmail: user.email });
+
+      // Upload to Supabase storage
+      const { data, error } = await supabase.storage
+        .from('wallet-icons')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (error) {
+        console.error('❌ Upload failed:', error);
+        throw new Error(`Upload failed: ${error.message}`);
+      }
+
+      console.log('✅ Upload successful:', data);
+      return filePath; // Return the file path, not the full URL
+    } catch (error) {
+      console.error('❌ Icon upload error:', error);
+      throw error;
+    }
+  };
+
   const handleSubmit = async () => {
     if (!name.trim()) {
       alert('Wallet Name is required.');
@@ -47,8 +84,7 @@ export default function AddWalletModal({ isOpen, onClose, onSuccess }) {
     try {
       let icon_url = '';
       if (iconFile) {
-        const result = await UploadFile({ file: iconFile });
-        icon_url = result.file_url;
+        icon_url = await uploadIconToSupabase(iconFile);
       }
       
       const { data: newWallet, error: createError } = await supabase
@@ -65,6 +101,7 @@ export default function AddWalletModal({ isOpen, onClose, onSuccess }) {
         throw new Error(`Failed to create wallet: ${createError.message}`);
       }
 
+      console.log('✅ Wallet created successfully:', newWallet);
       onSuccess();
       onClose();
       resetForm();

@@ -200,9 +200,9 @@ export default function PlaceTradeModal({ isOpen, onClose, symbol, tradeDirectio
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+      <DialogContent className="sm:max-w-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+        <DialogHeader className="border-b border-gray-200 dark:border-gray-700 pb-4">
+          <DialogTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
             {tradeDirection === 'BUY' ? (
               <TrendingUp className="w-5 h-5 text-green-600" />
             ) : (
@@ -213,23 +213,23 @@ export default function PlaceTradeModal({ isOpen, onClose, symbol, tradeDirectio
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="bg-gray-50 p-4 rounded-lg">
+          <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
             <div className="flex justify-between items-center mb-2">
-              <span className="text-sm text-gray-600">Current Price:</span>
-              <span className="font-semibold">{formatCurrency(symbol.current_price || 45230)}</span>
+              <span className="text-sm text-gray-600 dark:text-gray-300">Current Price:</span>
+              <span className="font-semibold dark:text-white">{formatCurrency(symbol.current_price || 45230)}</span>
             </div>
             <div className="flex justify-between items-center mb-2">
-              <span className="text-sm text-gray-600">Available Balance:</span>
-              <span className="font-semibold">{formatCurrency(user?.trading_wallet || 0)}</span>
+              <span className="text-sm text-gray-600 dark:text-gray-300">Available Balance:</span>
+              <span className="font-semibold dark:text-white">{formatCurrency(user?.trading_wallet || 0)}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Minimum Amount:</span>
+              <span className="text-sm text-gray-600 dark:text-gray-300">Minimum Amount:</span>
               <span className="font-semibold text-blue-600">{formatCurrency(minimumAmount)}</span>
             </div>
           </div>
 
           <div>
-            <Label htmlFor="investment-amount">Investment Amount ($) *</Label>
+            <Label htmlFor="investment-amount" className="text-gray-900 dark:text-white">Investment Amount ($) *</Label>
             <Input
               id="investment-amount"
               type="number"
@@ -240,13 +240,13 @@ export default function PlaceTradeModal({ isOpen, onClose, symbol, tradeDirectio
               max={user?.trading_wallet || 0}
               required
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Minimum: {formatCurrency(minimumAmount)} • Maximum: {formatCurrency(user?.trading_wallet || 0)}
             </p>
           </div>
 
           <div>
-            <Label htmlFor="leverage">Leverage</Label>
+            <Label htmlFor="leverage" className="text-gray-900 dark:text-white">Leverage</Label>
             <Select value={formData.leverage} onValueChange={(value) => handleChange('leverage', value)}>
               <SelectTrigger>
                 <SelectValue />
@@ -264,7 +264,7 @@ export default function PlaceTradeModal({ isOpen, onClose, symbol, tradeDirectio
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="stop-loss">Stop Loss (%)</Label>
+              <Label htmlFor="stop-loss" className="text-gray-900 dark:text-white">Stop Loss (%)</Label>
               <Input
                 id="stop-loss"
                 type="number"
@@ -276,7 +276,7 @@ export default function PlaceTradeModal({ isOpen, onClose, symbol, tradeDirectio
               />
             </div>
             <div>
-              <Label htmlFor="take-profit">Take Profit (%)</Label>
+              <Label htmlFor="take-profit" className="text-gray-900 dark:text-white">Take Profit (%)</Label>
               <Input
                 id="take-profit"
                 type="number"
@@ -289,31 +289,31 @@ export default function PlaceTradeModal({ isOpen, onClose, symbol, tradeDirectio
             </div>
           </div>
 
-          <div className="bg-blue-50 p-4 rounded-lg">
+          <div className="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
             <div className="flex justify-between items-center mb-2">
-              <span className="text-sm text-blue-700">Potential Profit (5% move):</span>
-              <span className="font-semibold text-blue-700">{formatCurrency(calculatePotentialProfit())}</span>
+              <span className="text-sm text-blue-700 dark:text-blue-200">Potential Profit (5% move):</span>
+              <span className="font-semibold text-blue-700 dark:text-blue-200">{formatCurrency(calculatePotentialProfit())}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-blue-700">Leverage Effect:</span>
-              <Badge variant="outline" className="text-blue-700 border-blue-300">
+              <span className="text-sm text-blue-700 dark:text-blue-200">Leverage Effect:</span>
+              <Badge variant="outline" className="text-blue-700 dark:text-blue-200 border-blue-300 dark:border-blue-700">
                 {formData.leverage} multiplier
               </Badge>
             </div>
           </div>
 
-          <DialogFooter className="gap-2">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button 
-              type="submit" 
-              disabled={isSubmitting || formData.investment_amount > (user?.trading_wallet || 0) || formData.investment_amount < minimumAmount}
-              className={tradeDirection === 'BUY' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}
-            >
-              {isSubmitting ? 'Placing Trade...' : `${tradeDirection} ${symbol.symbol}`}
-            </Button>
-          </DialogFooter>
+                     <DialogFooter className="gap-2 border-t border-gray-200 dark:border-gray-700 pt-4">
+             <Button type="button" variant="outline" onClick={onClose} className="border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+               Cancel
+             </Button>
+             <Button 
+               type="submit" 
+               disabled={isSubmitting || formData.investment_amount > (user?.trading_wallet || 0) || formData.investment_amount < minimumAmount}
+               className={tradeDirection === 'BUY' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}
+             >
+               {isSubmitting ? 'Placing Trade...' : `${tradeDirection} ${symbol.symbol}`}
+             </Button>
+           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

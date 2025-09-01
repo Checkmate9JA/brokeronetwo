@@ -79,28 +79,28 @@ export default function ModifyPositionModal({ isOpen, onClose, position, onSucce
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Modify Position - {position.symbol_code}</DialogTitle>
+      <DialogContent className="sm:max-w-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+        <DialogHeader className="border-b border-gray-200 dark:border-gray-700 pb-4">
+          <DialogTitle className="text-gray-900 dark:text-white">Modify Position - {position.symbol_code}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="bg-gray-50 p-4 rounded-lg">
+          <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <span className="text-gray-600">Entry Price:</span>
-                <div className="font-semibold">{formatCurrency(position.entry_price)}</div>
+                <span className="text-gray-600 dark:text-gray-300">Entry Price:</span>
+                <div className="font-semibold dark:text-white">{formatCurrency(position.entry_price)}</div>
               </div>
               <div>
-                <span className="text-gray-600">Investment:</span>
-                <div className="font-semibold">{formatCurrency(position.investment_amount)}</div>
+                <span className="text-gray-600 dark:text-gray-300">Investment:</span>
+                <div className="font-semibold dark:text-white">{formatCurrency(position.investment_amount)}</div>
               </div>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="stop-loss">Stop Loss (%)</Label>
+              <Label htmlFor="stop-loss" className="text-gray-900 dark:text-white">Stop Loss (%)</Label>
               <Input
                 id="stop-loss"
                 type="number"
@@ -110,12 +110,12 @@ export default function ModifyPositionModal({ isOpen, onClose, position, onSucce
                 min="0.1"
                 max="50"
               />
-              <div className="text-xs text-gray-500 mt-1">
+              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 Price: {formatCurrency((position.entry_price || 0) * (1 - formData.stop_loss_percentage / 100))}
               </div>
             </div>
             <div>
-              <Label htmlFor="take-profit">Take Profit (%)</Label>
+              <Label htmlFor="take-profit" className="text-gray-900 dark:text-white">Take Profit (%)</Label>
               <Input
                 id="take-profit"
                 type="number"
@@ -125,14 +125,14 @@ export default function ModifyPositionModal({ isOpen, onClose, position, onSucce
                 min="0.1"
                 max="1000"
               />
-              <div className="text-xs text-gray-500 mt-1">
+              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 Price: {formatCurrency((position.entry_price || 0) * (1 + formData.take_profit_percentage / 100))}
               </div>
             </div>
           </div>
 
-          <DialogFooter className="gap-2">
-            <Button type="button" variant="outline" onClick={onClose}>
+          <DialogFooter className="gap-2 border-t border-gray-200 dark:border-gray-700 pt-4">
+            <Button type="button" variant="outline" onClick={onClose} className="border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700">

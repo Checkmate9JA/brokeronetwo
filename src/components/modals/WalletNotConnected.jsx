@@ -4,11 +4,10 @@ import {
   Dialog, 
   DialogContent, 
   DialogHeader, 
-  DialogTitle,
-  DialogClose
+  DialogTitle
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Wallet, AlertTriangle, X } from 'lucide-react';
+import { Wallet, AlertTriangle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 
@@ -19,11 +18,6 @@ export default function WalletNotConnected({ isOpen, onClose }) {
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="text-xl font-bold">Activate Withdrawal</DialogTitle>
-            <DialogClose asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6">
-                <X className="h-4 w-4" />
-              </Button>
-            </DialogClose>
           </div>
           <p className="text-sm text-gray-500 pt-2">
             Verify your withdrawal eligibility before proceeding

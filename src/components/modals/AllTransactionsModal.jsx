@@ -146,13 +146,13 @@ export default function AllTransactionsModal({ isOpen, onClose, user }) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-5xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-5xl max-h-[90vh] flex flex-col bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+        <DialogHeader className="border-b border-gray-200 dark:border-gray-700 pb-4">
           <div className="flex items-center gap-2">
             <Zap className="w-5 h-5 text-blue-600" />
             <div>
-              <DialogTitle className="text-xl font-bold">All Transactions</DialogTitle>
-              <p className="text-sm text-gray-500 pt-2">View your complete transaction history and activity records</p>
+              <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white">All Transactions</DialogTitle>
+              <p className="text-sm text-gray-500 dark:text-gray-400 pt-2">View your complete transaction history and activity records</p>
             </div>
           </div>
         </DialogHeader>
@@ -163,7 +163,7 @@ export default function AllTransactionsModal({ isOpen, onClose, user }) {
           <div className="hidden lg:block">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-200 text-sm text-gray-600">
+                <tr className="border-b border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300">
                   <th className="text-left py-3 px-2">Type</th>
                   <th className="text-left py-3 px-2">Amount</th>
                   <th className="text-left py-3 px-2">Status</th>
@@ -184,11 +184,11 @@ export default function AllTransactionsModal({ isOpen, onClose, user }) {
                   ))
                 ) : (
                   transactions.map((transaction) => (
-                    <tr key={transaction.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <tr key={transaction.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
                       <td className="py-3 px-2">
                         <div className="flex items-center gap-2">
                           {getIcon(transaction.type)}
-                          <span className="capitalize font-medium">{transaction.type}</span>
+                          <span className="capitalize font-medium dark:text-white">{transaction.type}</span>
                         </div>
                       </td>
                       <td className="py-3 px-2">
@@ -203,10 +203,10 @@ export default function AllTransactionsModal({ isOpen, onClose, user }) {
                           {transaction.status}
                         </Badge>
                       </td>
-                      <td className="py-3 px-2 text-sm text-gray-600">
+                      <td className="py-3 px-2 text-sm text-gray-600 dark:text-gray-300">
                         {transaction.description || 'No description provided'}
                       </td>
-                      <td className="py-3 px-2 text-sm text-gray-500">
+                      <td className="py-3 px-2 text-sm text-gray-500 dark:text-gray-400">
                         {formatDate(transaction.created_at || transaction.created_date)}
                       </td>
                     </tr>
@@ -220,7 +220,7 @@ export default function AllTransactionsModal({ isOpen, onClose, user }) {
           <div className="lg:hidden space-y-3">
             {isLoading ? (
               Array(5).fill(0).map((_, i) => (
-                <div key={i} className="bg-white border rounded-lg p-4 animate-pulse">
+                <div key={i} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 animate-pulse">
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-gray-200 rounded"></div>
@@ -266,31 +266,31 @@ export default function AllTransactionsModal({ isOpen, onClose, user }) {
           </div>
         </div>
 
-        {/* Summary Stats - ADMIN ONLY */}
-        {isAdmin && (
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-center">
-              <div>
-                <div className="text-2xl font-bold text-green-600">{stats.totalCompleted}</div>
-                <div className="text-sm text-gray-600">Completed</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-orange-600">{stats.totalPending}</div>
-                <div className="text-sm text-gray-600">Pending</div>
-              </div>
-              <div className="col-span-2 grid grid-cols-2 gap-4 lg:col-span-2">
-                <div>
-                    <div className="text-2xl font-bold text-green-600">${stats.totalIn.toLocaleString()}</div>
-                    <div className="text-sm text-gray-600">Total In</div>
-                </div>
-                <div>
-                    <div className="text-2xl font-bold text-red-600">${stats.totalOut.toLocaleString()}</div>
-                    <div className="text-sm text-gray-600">Total Out</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+                 {/* Summary Stats - ADMIN ONLY */}
+         {isAdmin && (
+           <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-center">
+               <div>
+                 <div className="text-2xl font-bold text-green-600">{stats.totalCompleted}</div>
+                 <div className="text-sm text-gray-600 dark:text-gray-300">Completed</div>
+               </div>
+               <div>
+                 <div className="text-2xl font-bold text-orange-600">{stats.totalPending}</div>
+                 <div className="text-sm text-gray-600 dark:text-gray-300">Pending</div>
+               </div>
+               <div className="col-span-2 grid grid-cols-2 gap-4 lg:col-span-2">
+                 <div>
+                     <div className="text-2xl font-bold text-green-600">${stats.totalIn.toLocaleString()}</div>
+                     <div className="text-sm text-gray-600 dark:text-gray-300">Total In</div>
+                 </div>
+                 <div>
+                     <div className="text-2xl font-bold text-red-600">${stats.totalOut.toLocaleString()}</div>
+                     <div className="text-sm text-gray-600 dark:text-gray-300">Total Out</div>
+                 </div>
+               </div>
+             </div>
+           </div>
+         )}
       </DialogContent>
     </Dialog>
   );

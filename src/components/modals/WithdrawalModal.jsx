@@ -206,11 +206,12 @@ export default function WithdrawalModal({ isOpen, onClose, onSuccess, user, preV
 
       showFeedback('success', 'Success!', `Withdrawal request submitted! $${withdrawalAmount.toFixed(2)} has been deducted from your profit wallet and is pending approval.`);
       
+      // Delay the success callback and modal close to allow user to see feedback
       setTimeout(() => {
         onSuccess();
         onClose();
         resetForm();
-      }, 2500);
+      }, 3000); // 3 second delay
 
     } catch (error) {
       console.error('Withdrawal failed:', error);
@@ -223,9 +224,9 @@ export default function WithdrawalModal({ isOpen, onClose, onSuccess, user, preV
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col">
-          <DialogHeader className="sticky top-0 bg-white z-10 py-4 border-b">
-            <DialogTitle className="flex items-center gap-2 text-xl">
+        <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+          <DialogHeader className="sticky top-0 bg-white dark:bg-gray-800 z-10 py-4 border-b border-gray-200 dark:border-gray-700">
+            <DialogTitle className="flex items-center gap-2 text-xl text-gray-900 dark:text-white">
               {isValidated ? (
                 <>
                   <CheckCircle className="w-6 h-6 text-green-600" />
@@ -245,7 +246,7 @@ export default function WithdrawalModal({ isOpen, onClose, onSuccess, user, preV
             {!isValidated ? (
               // Withdrawal Code Entry Form
               <div className="space-y-4 px-5">
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
                   Enter your unique withdrawal code to proceed with withdrawal.
                 </p>
                 
@@ -253,7 +254,7 @@ export default function WithdrawalModal({ isOpen, onClose, onSuccess, user, preV
 
                 {/* Withdrawal Code Input */}
                 <div>
-                  <Label htmlFor="withdrawal-code">Withdrawal Code</Label>
+                  <Label htmlFor="withdrawal-code" className="text-gray-900 dark:text-white">Withdrawal Code</Label>
                   <Input
                     id="withdrawal-code"
                     type="text"
@@ -275,14 +276,14 @@ export default function WithdrawalModal({ isOpen, onClose, onSuccess, user, preV
             ) : (
               // Withdrawal Form (after validation)
               <div className="space-y-4 px-5">
-                <div className="text-center p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="text-center p-4 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg">
                   <CheckCircle className="w-8 h-8 text-green-600 mx-auto mb-2" />
-                  <p className="text-green-800 font-medium">Withdrawal code validated successfully!</p>
-                  <p className="text-green-600 text-sm">You can now proceed with your withdrawal.</p>
+                  <p className="text-green-800 dark:text-green-200 font-medium">Withdrawal code validated successfully!</p>
+                  <p className="text-green-600 dark:text-green-300 text-sm">You can now proceed with your withdrawal.</p>
                 </div>
 
                 <div>
-                  <Label htmlFor="amount" className="font-semibold">Amount ($)</Label>
+                  <Label htmlFor="amount" className="font-semibold text-gray-900 dark:text-white">Amount ($)</Label>
                   <Input
                     id="amount"
                     type="number"
@@ -292,14 +293,14 @@ export default function WithdrawalModal({ isOpen, onClose, onSuccess, user, preV
                     onChange={(e) => setAmount(e.target.value)}
                     className="mt-2"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {/* Access user data from props */}
                     Available: ${(user?.profit_wallet || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                   </p>
                 </div>
 
                 <div>
-                  <Label htmlFor="crypto-type" className="font-semibold">Cryptocurrency</Label>
+                  <Label htmlFor="crypto-type" className="font-semibold text-gray-900 dark:text-white">Cryptocurrency</Label>
                   <Input
                     id="crypto-type"
                     type="text"
@@ -311,7 +312,7 @@ export default function WithdrawalModal({ isOpen, onClose, onSuccess, user, preV
                 </div>
 
                 <div>
-                  <Label htmlFor="wallet-address" className="font-semibold">Wallet Address</Label>
+                  <Label htmlFor="wallet-address" className="font-semibold text-gray-900 dark:text-white">Wallet Address</Label>
                   <Input
                     id="wallet-address"
                     type="text"
@@ -323,7 +324,7 @@ export default function WithdrawalModal({ isOpen, onClose, onSuccess, user, preV
                 </div>
 
                 <div>
-                  <Label htmlFor="description" className="font-semibold">Description (Optional)</Label>
+                  <Label htmlFor="description" className="font-semibold text-gray-900 dark:text-white">Description (Optional)</Label>
                   <Textarea
                     id="description"
                     placeholder="Add any additional notes..."
@@ -337,7 +338,7 @@ export default function WithdrawalModal({ isOpen, onClose, onSuccess, user, preV
                   <Button 
                     variant="outline" 
                     onClick={onClose} 
-                    className="flex-1"
+                    className="flex-1 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                   >
                     Cancel
                   </Button>

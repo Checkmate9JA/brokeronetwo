@@ -7,6 +7,9 @@ import { ArrowLeft, Calendar, TrendingUp, DollarSign } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
+import ThemeToggle from '../components/ThemeToggle';
+import SocialProof from '../components/SocialProof';
 import InvestNowModal from '../components/modals/InvestNowModal';
 import { Badge } from "@/components/ui/badge";
 import FeedbackModal from '../components/modals/FeedbackModal';
@@ -255,19 +258,22 @@ export default function InvestmentPlans() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 py-4 sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto flex items-center gap-4">
-          <Link to={createPageUrl('Dashboard')}>
-            <Button variant="ghost" size="icon" className="text-gray-600 hover:bg-gray-50">
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Investment Plans</h1>
-            <p className="text-sm text-gray-500">Explore and manage your investment opportunities</p>
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-4 sticky top-0 z-50 transition-colors">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Link to={createPageUrl('Dashboard')}>
+              <Button variant="ghost" size="icon" className="text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+            </Link>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">Investment Plans</h1>
+              <p className="text-sm text-gray-500 dark:text-white dark:font-semibold">Explore and manage your investment opportunities</p>
+            </div>
           </div>
+          <ThemeToggle />
         </div>
       </div>
 
@@ -284,20 +290,20 @@ export default function InvestmentPlans() {
             {isLoading ? (
               <div className="text-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="mt-4 text-gray-600">Loading investment plans...</p>
+                <p className="mt-4 text-gray-600 dark:text-gray-400">Loading investment plans...</p>
               </div>
             ) : plans.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {plans.map((plan) => (
-                  <Card key={plan.id} className="p-6 bg-white border border-gray-200 hover:shadow-lg transition-shadow h-full flex flex-col">
+                  <Card key={plan.id} className="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow h-full flex flex-col">
                     <div className="flex-grow">
                       <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-xl font-bold text-gray-900">{plan.name}</h3>
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white">{plan.name}</h3>
                         <Badge 
                           className={`${
-                            plan.risk_level === 'low' ? 'bg-green-100 text-green-800' :
-                            plan.risk_level === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-red-100 text-red-800'
+                            plan.risk_level === 'low' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200' :
+                            plan.risk_level === 'medium' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200' :
+                            'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'
                           }`}
                         >
                           {plan.risk_level} risk
@@ -306,21 +312,21 @@ export default function InvestmentPlans() {
                       
                       <div className="space-y-3 mb-6">
                         <div className="flex justify-between">
-                          <span className="text-gray-600">ROI:</span>
+                          <span className="text-gray-600 dark:text-gray-300">ROI:</span>
                           <span className="font-semibold text-green-600">{plan.roi_percentage}%</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Duration:</span>
-                          <span className="font-semibold">{plan.duration_days} day{plan.duration_days !== 1 ? 's' : ''}</span>
+                          <span className="text-gray-600 dark:text-gray-300">Duration:</span>
+                          <span className="font-semibold dark:text-white">{plan.duration_days} day{plan.duration_days !== 1 ? 's' : ''}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Min - Max:</span>
-                          <span className="font-semibold">{formatCurrency(plan.min_deposit)} - {formatCurrency(plan.max_deposit)}</span>
+                          <span className="text-gray-600 dark:text-gray-300">Min - Max:</span>
+                          <span className="font-semibold dark:text-white">{formatCurrency(plan.min_deposit)} - {formatCurrency(plan.max_deposit)}</span>
                         </div>
                       </div>
 
                       <div className="mb-6 h-12">
-                        <p className="text-sm text-gray-500 leading-relaxed line-clamp-2">
+                        <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed line-clamp-2">
                           {truncateDescription(plan.description, 2)}
                         </p>
                       </div>
@@ -338,9 +344,9 @@ export default function InvestmentPlans() {
               </div>
             ) : (
               <div className="text-center py-12">
-                <TrendingUp className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-gray-600 mb-2">No Investment Plans Available</h3>
-                <p className="text-gray-500">Please check back later for new investment opportunities.</p>
+                <TrendingUp className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-gray-600 dark:text-gray-400 mb-2">No Investment Plans Available</h3>
+                <p className="text-gray-500 dark:text-gray-400">Please check back later for new investment opportunities.</p>
               </div>
             )}
           </TabsContent>
@@ -349,29 +355,29 @@ export default function InvestmentPlans() {
             {isLoading ? (
               <div className="text-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="mt-4 text-gray-600">Loading your ongoing investments...</p>
+                <p className="mt-4 text-gray-600 dark:text-gray-400">Loading your ongoing investments...</p>
               </div>
             ) : myInvestments.filter(i => i.status === 'active').length > 0 ? (
               <div className="space-y-6">
                 {/* Summary section */}
-                <div className="bg-white p-6 rounded-lg border border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Investment Summary</h3>
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Investment Summary</h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="text-center">
                       <div className="text-2xl font-bold text-blue-600">{myInvestments.filter(i => i.status === 'active').length}</div>
-                      <div className="text-sm text-gray-600">Active Investments</div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">Active Investments</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-green-600">
                         {formatCurrency(myInvestments.filter(i => i.status === 'active').reduce((sum, inv) => sum + parseFloat(inv.amount_invested), 0))}
                       </div>
-                      <div className="text-sm text-gray-600">Total Invested</div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">Total Invested</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-purple-600">
                         {formatCurrency(myInvestments.filter(i => i.status === 'active').reduce((sum, inv) => sum + parseFloat(inv.expected_profit), 0))}
                       </div>
-                      <div className="text-sm text-gray-600">Expected Profit</div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">Expected Profit</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-orange-600">
@@ -380,7 +386,7 @@ export default function InvestmentPlans() {
                           return timeRemaining.days === 0 && timeRemaining.hours < 24;
                         }).length}
                       </div>
-                      <div className="text-sm text-gray-600">Matures Today</div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">Matures Today</div>
                     </div>
                   </div>
                 </div>
@@ -391,11 +397,11 @@ export default function InvestmentPlans() {
                   const timeRemaining = calculateTimeRemaining(investment.maturity_date);
                   
                   return (
-                    <Card key={investment.id} className="bg-white p-6 shadow-md border border-gray-100">
+                    <Card key={investment.id} className="bg-white dark:bg-gray-800 p-6 shadow-md border border-gray-100 dark:border-gray-700">
                       <div className="flex justify-between items-start mb-4">
                         <div>
-                          <h3 className="text-xl font-bold text-gray-900">{investment.plan_name}</h3>
-                          <p className="text-gray-500">Invested on {(() => {
+                          <h3 className="text-xl font-bold text-gray-900 dark:text-white">{investment.plan_name}</h3>
+                          <p className="text-gray-500 dark:text-gray-400">Invested on {(() => {
                             try {
                               // Try created_at first (correct field), fallback to created_date for backward compatibility
                               const dateValue = investment.created_at || investment.created_date;
@@ -422,19 +428,19 @@ export default function InvestmentPlans() {
                       
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                         <div>
-                          <div className="text-sm text-gray-500">Amount Invested</div>
-                          <div className="text-lg font-bold">{formatCurrency(investment.amount_invested)}</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">Amount Invested</div>
+                          <div className="text-lg font-bold dark:text-white">{formatCurrency(investment.amount_invested)}</div>
                         </div>
                         <div>
-                          <div className="text-sm text-gray-500">Expected Profit</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">Expected Profit</div>
                           <div className="text-lg font-bold text-green-600">+{formatCurrency(investment.expected_profit)}</div>
                         </div>
                         <div>
-                          <div className="text-sm text-gray-500">ROI</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">ROI</div>
                           <div className="text-lg font-bold text-blue-600">{investment.roi_percentage}%</div>
                         </div>
                         <div>
-                          <div className="text-sm text-gray-500">
+                          <div className="text-sm text-gray-500 dark:text-gray-400">
                             {isActive ? 'Time Remaining' : 'Duration'}
                           </div>
                           <div className={`text-lg font-bold ${timeRemaining.isExpired ? 'text-red-600' : timeRemaining.days === 0 && timeRemaining.hours < 6 ? 'text-orange-600' : 'text-blue-600'}`}>
@@ -482,7 +488,7 @@ export default function InvestmentPlans() {
                       
                       {isActive && (
                         <div className="flex justify-between items-center pt-4 border-t border-gray-100">
-                          <div className="text-sm text-gray-600">
+                          <div className="text-sm text-gray-600 dark:text-gray-300">
                             Matures on: {maturityDate.toLocaleDateString()}
                             {timeRemaining.days === 0 && timeRemaining.hours < 24 && (
                               <span className="ml-2 text-blue-600 font-medium">
@@ -506,8 +512,8 @@ export default function InvestmentPlans() {
             ) : (
               <div className="text-center py-12">
                 <TrendingUp className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-gray-600 mb-2">No Ongoing Investments</h3>
-                <p className="text-gray-500 mb-6">Start investing in available plans to see them here.</p>
+                <h3 className="text-xl font-semibold text-gray-600 dark:text-white mb-2">No Ongoing Investments</h3>
+                <p className="text-gray-500 dark:text-gray-400 mb-6">Start investing in available plans to see them here.</p>
                 <Button onClick={() => setActiveTab('available')} className="bg-blue-600 hover:bg-blue-700">
                   Browse Investment Plans
                 </Button>
@@ -519,7 +525,7 @@ export default function InvestmentPlans() {
             {isLoading ? (
               <div className="text-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="mt-4 text-gray-600">Loading your matured investments...</p>
+                <p className="mt-4 text-gray-600 dark:text-gray-400">Loading your matured investments...</p>
               </div>
             ) : myInvestments.filter(i => i.status === 'matured').length > 0 ? (
               <div className="space-y-6">
@@ -527,8 +533,8 @@ export default function InvestmentPlans() {
                   <Card key={investment.id} className="bg-white p-6 shadow-md border border-gray-100">
                     <div className="flex justify-between items-start mb-4">
                       <div>
-                        <h3 className="text-xl font-bold text-gray-900">{investment.plan_name}</h3>
-                        <p className="text-gray-500">Invested on {(() => {
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white">{investment.plan_name}</h3>
+                        <p className="text-gray-500 dark:text-gray-400">Invested on {(() => {
                           try {
                             // Try created_at first (correct field), fallback to created_date for backward compatibility
                             const dateValue = investment.created_at || investment.created_date;
@@ -555,19 +561,19 @@ export default function InvestmentPlans() {
                     
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                       <div>
-                        <div className="text-sm text-gray-500">Amount Invested</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">Amount Invested</div>
                         <div className="text-lg font-bold">{formatCurrency(investment.amount_invested)}</div>
                       </div>
                       <div>
-                        <div className="text-sm text-gray-500">Expected Profit</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">Expected Profit</div>
                         <div className="text-lg font-bold text-green-600">+{formatCurrency(investment.expected_profit)}</div>
                       </div>
                       <div>
-                        <div className="text-sm text-gray-500">ROI</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">ROI</div>
                         <div className="text-lg font-bold text-blue-600">{investment.roi_percentage}%</div>
                       </div>
                       <div>
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
                           Duration
                         </div>
                         <div className="text-lg font-bold text-gray-600">{investment.duration_days} day{investment.duration_days !== 1 ? 's' : ''}</div>
@@ -576,7 +582,7 @@ export default function InvestmentPlans() {
                     
                     {/* Progress bar for matured investments */}
                     <div className="mb-4">
-                      <div className="flex justify-between text-xs text-gray-500 mb-1">
+                      <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
                         <span>Invested: {(() => {
                           try {
                             // Try created_at first (correct field), fallback to created_date for backward compatibility
@@ -591,7 +597,7 @@ export default function InvestmentPlans() {
                         })()}</span>
                         <span>Matured: {new Date(investment.matured_at || investment.created_at || investment.created_date).toLocaleDateString()}</span>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                         <div 
                           className="h-2 rounded-full bg-purple-500"
                           style={{
@@ -608,8 +614,8 @@ export default function InvestmentPlans() {
             ) : (
               <div className="text-center py-12">
                 <TrendingUp className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-gray-600 mb-2">No Matured Investments</h3>
-                <p className="text-gray-500 mb-6">Your matured investments will appear here.</p>
+                <h3 className="text-xl font-semibold text-gray-600 dark:text-white mb-2">No Matured Investments</h3>
+                <p className="text-gray-500 dark:text-gray-400 mb-6">Your matured investments will appear here.</p>
                 <Button onClick={() => setActiveTab('available')} className="bg-blue-600 hover:bg-blue-700">
                   Browse Investment Plans
                 </Button>
@@ -621,16 +627,16 @@ export default function InvestmentPlans() {
             {isLoading ? (
               <div className="text-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="mt-4 text-gray-600">Loading your cancelled investments...</p>
+                <p className="mt-4 text-gray-600 dark:text-gray-400">Loading your cancelled investments...</p>
               </div>
             ) : myInvestments.filter(i => i.status === 'cancelled').length > 0 ? (
               <div className="space-y-6">
                 {myInvestments.filter(i => i.status === 'cancelled').map((investment) => (
-                  <Card key={investment.id} className="bg-white p-6 shadow-md border border-gray-100">
+                  <Card key={investment.id} className="bg-white dark:bg-gray-800 p-6 shadow-md border border-gray-100 dark:border-gray-700">
                     <div className="flex justify-between items-start mb-4">
                       <div>
-                        <h3 className="text-xl font-bold text-gray-900">{investment.plan_name}</h3>
-                        <p className="text-gray-500">Invested on {(() => {
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white">{investment.plan_name}</h3>
+                        <p className="text-gray-500 dark:text-gray-400">Invested on {(() => {
                           try {
                             // Try created_at first (correct field), fallback to created_date for backward compatibility
                             const dateValue = investment.created_at || investment.created_date;
@@ -657,19 +663,19 @@ export default function InvestmentPlans() {
                     
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                       <div>
-                        <div className="text-sm text-gray-500">Amount Invested</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">Amount Invested</div>
                         <div className="text-lg font-bold">{formatCurrency(investment.amount_invested)}</div>
                       </div>
                       <div>
-                        <div className="text-sm text-gray-500">Expected Profit</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">Expected Profit</div>
                         <div className="text-lg font-bold text-green-600">+{formatCurrency(investment.expected_profit)}</div>
                       </div>
                       <div>
-                        <div className="text-sm text-gray-500">ROI</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">ROI</div>
                         <div className="text-lg font-bold text-blue-600">{investment.roi_percentage}%</div>
                       </div>
                       <div>
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
                           Duration
                         </div>
                         <div className="text-lg font-bold text-gray-600">{investment.duration_days} day{investment.duration_days !== 1 ? 's' : ''}</div>
@@ -678,7 +684,7 @@ export default function InvestmentPlans() {
                     
                     {/* Progress bar for cancelled investments */}
                     <div className="mb-4">
-                      <div className="flex justify-between text-xs text-gray-500 mb-1">
+                      <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
                         <span>Invested: {(() => {
                           try {
                             // Try created_at first (correct field), fallback to created_date for backward compatibility
@@ -693,7 +699,7 @@ export default function InvestmentPlans() {
                         })()}</span>
                         <span>Cancelled: {new Date(investment.cancelled_at || investment.created_at || investment.created_date).toLocaleDateString()}</span>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                         <div 
                           className="h-2 rounded-full bg-red-500"
                           style={{
@@ -710,8 +716,8 @@ export default function InvestmentPlans() {
             ) : (
               <div className="text-center py-12">
                 <TrendingUp className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-gray-600 mb-2">No Cancelled Investments</h3>
-                <p className="text-gray-500 mb-6">Your cancelled investments will appear here.</p>
+                <h3 className="text-xl font-semibold text-gray-600 dark:text-white mb-2">No Cancelled Investments</h3>
+                <p className="text-gray-500 dark:text-gray-400 mb-6">Your cancelled investments will appear here.</p>
                 <Button onClick={() => setActiveTab('available')} className="bg-blue-600 hover:bg-blue-700">
                   Browse Investment Plans
                 </Button>
@@ -752,6 +758,9 @@ export default function InvestmentPlans() {
         title={feedback.title}
         message={feedback.message}
       />
+
+      {/* Social Proof Notifications */}
+      <SocialProof pageType="investment-plans" />
     </div>
   );
 }

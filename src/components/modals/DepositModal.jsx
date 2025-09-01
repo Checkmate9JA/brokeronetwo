@@ -208,11 +208,15 @@ export default function DepositModal({ isOpen, onClose, onSuccess, user }) {
         }
         
         showFeedback('success', 'Success!', 'Deposit submitted successfully! Your deposit will be reviewed and processed.');
-        onSuccess();
-        onClose();
-        // Reset form
-        setDepositAmount('');
-        setUploadedFile(null);
+        
+        // Delay the success callback and modal close to allow user to see feedback
+        setTimeout(() => {
+          onSuccess();
+          onClose();
+          // Reset form
+          setDepositAmount('');
+          setUploadedFile(null);
+        }, 3000); // 3 second delay
 
     } catch (error) {
         console.error("Deposit failed:", error);
@@ -228,24 +232,24 @@ export default function DepositModal({ isOpen, onClose, onSuccess, user }) {
 
   return (
     <>
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-xl max-h-[90vh] flex flex-col p-0">
-        <DialogHeader className="p-6 border-b">
-          <div className="flex items-center gap-2">
-              <PlusCircle className="w-5 h-5 text-blue-600" />
-              <DialogTitle className="text-xl font-bold">Deposit Funds</DialogTitle>
-            </div>
-        </DialogHeader>
+          <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-xl max-h-[90vh] flex flex-col p-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+          <DialogHeader className="p-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-2">
+                <PlusCircle className="w-5 h-5 text-blue-600" />
+                <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white">Deposit Funds</DialogTitle>
+              </div>
+          </DialogHeader>
 
-        {loadingSettings ? <div className="flex-1 overflow-y-auto py-8 text-center">Loading payment methods...</div> : (
+        {loadingSettings ? <div className="flex-1 overflow-y-auto py-8 text-center text-gray-600 dark:text-gray-400">Loading payment methods...</div> : (
         <>
         <div className="p-6 flex-1 overflow-y-auto">
-          <p className="text-sm text-gray-500 mb-6">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
             Select a payment method, make payment and upload/submit proof of payment.
           </p>
 
           <div className="mb-6">
-            <Label htmlFor="deposit-amount" className="font-semibold">Deposit Amount</Label>
+            <Label htmlFor="deposit-amount" className="font-semibold text-gray-900 dark:text-white">Deposit Amount</Label>
             <Input 
                 id="deposit-amount" 
                 type="number"
@@ -267,7 +271,7 @@ export default function DepositModal({ isOpen, onClose, onSuccess, user }) {
               {settings.crypto && (
               <TabsContent value="crypto" className="pt-6 space-y-4">
                 <div>
-                  <Label className="font-semibold">Select Cryptocurrency</Label>
+                  <Label className="font-semibold text-gray-900 dark:text-white">Select Cryptocurrency</Label>
                   <Select value={selectedCrypto} onValueChange={setSelectedCrypto}>
                       <SelectTrigger className="mt-2">
                           <SelectValue placeholder="Select a crypto" />
@@ -280,9 +284,9 @@ export default function DepositModal({ isOpen, onClose, onSuccess, user }) {
                   </Select>
                 </div>
                 <div>
-                  <Label className="font-semibold">Wallet Address</Label>
-                   <div className="p-4 bg-gray-50 border rounded-md">
-                      <span className="font-mono text-gray-800 break-all">{selectedWallet?.address || ''}</span>
+                  <Label className="font-semibold text-gray-900 dark:text-white">Wallet Address</Label>
+                   <div className="p-4 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md">
+                      <span className="font-mono text-gray-800 dark:text-gray-200 break-all">{selectedWallet?.address || ''}</span>
                       <CopyButton value={selectedWallet?.address || ''} />
                   </div>
                 </div>
@@ -291,13 +295,13 @@ export default function DepositModal({ isOpen, onClose, onSuccess, user }) {
 
               {settings.bank && (
               <TabsContent value="bank" className="pt-6">
-                  <Label className="font-semibold">Bank Details</Label>
-                  <div className="p-4 mt-2 space-y-3 bg-gray-50 border rounded-md text-gray-800">
-                      <p><strong className="text-gray-900">Account:</strong> {settings.bank.account_name}</p>
-                      <p><strong className="text-gray-900">Number:</strong> {settings.bank.account_number}</p>
-                      <p><strong className="text-gray-900">Bank:</strong> {settings.bank.bank_name}</p>
-                      <p><strong className="text-gray-900">SWIFT:</strong> {settings.bank.swift_code}</p>
-                      <CopyButton 
+                  <Label className="font-semibold text-gray-900 dark:text-white">Bank Details</Label>
+                  <div className="p-4 mt-2 space-y-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md text-gray-800 dark:text-gray-200">
+                      <p><strong className="text-gray-900 dark:text-white">Account:</strong> {settings.bank.account_name}</p>
+                      <p><strong className="text-gray-900 dark:text-white">Number:</strong> {settings.bank.account_number}</p>
+                      <p><strong className="text-gray-900 dark:text-white">Bank:</strong> {settings.bank.bank_name}</p>
+                      <p><strong className="text-gray-900 dark:text-white">SWIFT:</strong> {settings.bank.swift_code}</p>
+                      <CopyButton
                           value={
                               `Account: ${settings.bank.account_name}\nNumber: ${settings.bank.account_number}\nBank: ${settings.bank.bank_name}\nSWIFT: ${settings.bank.swift_code}`
                           }
@@ -309,9 +313,9 @@ export default function DepositModal({ isOpen, onClose, onSuccess, user }) {
 
               {settings.paypal && (
               <TabsContent value="paypal" className="pt-6">
-                  <Label className="font-semibold">PayPal Details</Label>
-                  <div className="p-4 mt-2 space-y-3 bg-gray-50 border rounded-md">
-                      <p className="font-mono">{settings.paypal.paypal_email}</p>
+                  <Label className="font-semibold text-gray-900 dark:text-white">PayPal Details</Label>
+                  <div className="p-4 mt-2 space-y-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md">
+                      <p className="font-mono text-gray-800 dark:text-gray-200">{settings.paypal.paypal_email}</p>
                       <CopyButton 
                           value={settings.paypal.paypal_email} 
                           instruction={settings.paypal.instructions}
@@ -321,21 +325,21 @@ export default function DepositModal({ isOpen, onClose, onSuccess, user }) {
               )}
             </Tabs>
           ) : (
-            <div className="py-8 text-center text-gray-500 bg-gray-50 rounded-lg">
+            <div className="py-8 text-center text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
               No payment methods have been configured by the administrator.
             </div>
           )}
 
           <div className="mt-6">
-            <Label className="font-semibold">Proof of Payment</Label>
+            <Label className="font-semibold text-gray-900 dark:text-white">Proof of Payment</Label>
             <div 
-              className="mt-2 flex items-center justify-between border rounded-md p-2 cursor-pointer hover:bg-gray-50"
+              className="mt-2 flex items-center justify-between border border-gray-200 dark:border-gray-600 rounded-md p-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 bg-white dark:bg-gray-800"
               onClick={() => fileInputRef.current?.click()}
             >
-              <span className="text-gray-600 truncate">
+              <span className="text-gray-600 dark:text-gray-300 truncate">
                 {uploadedFile ? uploadedFile.name : 'Choose File'}
               </span>
-              <Upload className="w-5 h-5 text-gray-500" />
+              <Upload className="w-5 h-5 text-gray-500 dark:text-gray-400" />
             </div>
             <input 
               type="file" 
@@ -344,13 +348,13 @@ export default function DepositModal({ isOpen, onClose, onSuccess, user }) {
               onChange={handleFileChange}
               accept="image/jpeg, image/png"
             />
-            <p className="text-xs text-gray-500 mt-2">JPG, PNG only. Max 1MB.</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">JPG, PNG only. Max 1MB.</p>
           </div>
         </div>
         
-        <DialogFooter className="p-6 border-t">
+        <DialogFooter className="p-6 border-t border-gray-200 dark:border-gray-700">
             <div className="flex justify-end gap-2 w-full">
-                <Button variant="outline" onClick={onClose}>
+                <Button variant="outline" onClick={onClose} className="border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
                     Cancel
                 </Button>
                 <Button 

@@ -1,143 +1,178 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useAuth } from '@/contexts/AuthContext'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useToast } from '@/components/ui/use-toast'
-import { Eye, EyeOff } from 'lucide-react'
+import React, { useState, useEffect } from 'react';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Eye, EyeOff } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { useNavigate } from 'react-router-dom';
+import { CurrencyAPI } from '@/api/currencies';
+
 
 export default function Auth() {
-  const [activeTab, setActiveTab] = useState('login')
-  const [loading, setLoading] = useState(false)
-  const [showLoginPassword, setShowLoginPassword] = useState(false)
-  const [showSignupPassword, setShowSignupPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const navigate = useNavigate()
-  const { signIn, signUp } = useAuth()
-  const { toast } = useToast()
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState("login");
+  const [loading, setLoading] = useState(false);
+  const [currencies, setCurrencies] = useState([]);
 
+  
   // Login form state
   const [loginForm, setLoginForm] = useState({
     email: '',
-    password: '',
-  })
-
+    password: ''
+  });
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  
   // Signup form state
   const [signupForm, setSignupForm] = useState({
+    fullName: '',
     email: '',
     password: '',
     confirmPassword: '',
-    fullName: '',
-  })
+    preferredCurrency: 'USD'
+  });
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  useEffect(() => {
+    loadCurrencies();
+  }, []);
+
+
+
+  const loadCurrencies = async () => {
+    try {
+      const currenciesData = await CurrencyAPI.getAll();
+      setCurrencies(currenciesData);
+    } catch (error) {
+      console.error('Error loading currencies:', error);
+    }
+  };
+
+
 
   const handleLogin = async (e) => {
-    e.preventDefault()
-    setLoading(true)
+    e.preventDefault();
+    setLoading(true);
 
     try {
-      const { data, error } = await signIn(loginForm.email, loginForm.password)
-      
-      if (error) {
-        toast({
-          title: "Login failed",
-          description: error.message,
-          variant: "destructive",
-        })
-        return
-      }
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: loginForm.email,
+        password: loginForm.password,
+      });
 
-      toast({
-        title: "Login successful",
-        description: "Welcome back!",
-      })
+      if (error) throw error;
 
-      // Redirect based on user role
-      navigate('/Dashboard')
+      // Redirect to dashboard on successful login
+      navigate('/Dashboard');
     } catch (error) {
-      toast({
-        title: "Login failed",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      })
+      console.error('Login error:', error);
+      alert('Login failed: ' + error.message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleSignup = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-
+    e.preventDefault();
+    
     if (signupForm.password !== signupForm.confirmPassword) {
-      toast({
-        title: "Passwords don't match",
-        description: "Please make sure your passwords match",
-        variant: "destructive",
-      })
-      setLoading(false)
-      return
+      alert('Passwords do not match!');
+      return;
     }
+
+    if (signupForm.password.length < 6) {
+      alert('Password must be at least 6 characters long!');
+      return;
+    }
+
+    setLoading(true);
 
     try {
-      const { data, error } = await signUp(signupForm.email, signupForm.password, signupForm.fullName)
-      
-      if (error) {
-        console.error('Signup error details:', error)
-        toast({
-          title: "Signup failed",
-          description: error.message || "An unexpected error occurred",
-          variant: "destructive",
-        })
-        return
+      // Create user in Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: signupForm.email,
+        password: signupForm.password,
+        options: {
+          data: {
+            full_name: signupForm.fullName,
+            preferred_currency: signupForm.preferredCurrency
+          }
+        }
+      });
+
+      if (authError) throw authError;
+
+      // Create user profile in users table
+      if (authData.user) {
+        const { error: profileError } = await supabase
+          .from('users')
+          .insert({
+            id: authData.user.id,
+            email: signupForm.email,
+            full_name: signupForm.fullName,
+            role: 'user',
+            preferred_currency: signupForm.preferredCurrency,
+            withdrawal_code: generateWithdrawalCode(),
+            withdrawal_option: 'withdrawal_code'
+          });
+
+        if (profileError) throw profileError;
       }
 
-      toast({
-        title: "Signup successful",
-        description: "Please check your email to verify your account",
-        variant: "success",
-      })
-
-      setActiveTab('login')
+      alert('Account created successfully! Please check your email for verification.');
+      setActiveTab('login');
+      
+      // Reset signup form
+      setSignupForm({
+        fullName: '',
+        email: '',
+        password: '',
+        confirmPassword: '',
+        preferredCurrency: 'USD'
+      });
     } catch (error) {
-      toast({
-        title: "Signup failed",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      })
+      console.error('Signup error:', error);
+      alert('Signup failed: ' + error.message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
+
+  const generateWithdrawalCode = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < 8; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  };
+
+
+
+
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div className="text-center">
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-            Welcome to BrokerOne
-          </h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Sign in to your account or create a new one
-          </p>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-center">Authentication</CardTitle>
-            <CardDescription className="text-center">
-              Choose your authentication method
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl font-bold text-gray-900 dark:text-white">
+              Welcome Back
+            </CardTitle>
+            <CardDescription className="text-gray-600 dark:text-gray-400">
+              Sign in to your account or create a new one
             </CardDescription>
           </CardHeader>
+          
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="login">Login</TabsTrigger>
                 <TabsTrigger value="signup">Sign Up</TabsTrigger>
               </TabsList>
-
+              
               <TabsContent value="login" className="space-y-4">
                 <form onSubmit={handleLogin} className="space-y-4">
                   <div className="space-y-2">
@@ -180,7 +215,7 @@ export default function Auth() {
                   </Button>
                 </form>
               </TabsContent>
-
+              
               <TabsContent value="signup" className="space-y-4">
                 <form onSubmit={handleSignup} className="space-y-4">
                   <div className="space-y-2">
@@ -253,6 +288,29 @@ export default function Auth() {
                       </button>
                     </div>
                   </div>
+                  
+                  {/* Enhanced Currency Selection */}
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-currency">Preferred Currency</Label>
+                      <select
+                        id="signup-currency"
+                        value={signupForm.preferredCurrency}
+                        onChange={(e) => setSignupForm({ ...signupForm, preferredCurrency: e.target.value })}
+                        className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        {currencies.map((currency) => (
+                          <option key={currency.code} value={currency.code}>
+                            {currency.flag} {currency.code} - {currency.name}
+
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+
+                  </div>
+                  
                   <Button type="submit" className="w-full" disabled={loading}>
                     {loading ? 'Creating account...' : 'Create Account'}
                   </Button>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -34,9 +33,10 @@ import {
   Database,
   Globe,
   AlertTriangle,
-  Menu, // Added for mobile menu
-  User as UserIcon, // For Account Icon
-  MessageCircle // Added for WhatsApp/LiveChat settings
+  Menu,
+  User as UserIcon,
+  MessageCircle,
+  Activity
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -45,9 +45,12 @@ import AddNewUserModal from '../components/modals/AddNewUserModal';
 import EditUserModal from '../components/modals/EditUserModal';
 import { useApp } from '../components/AppProvider';
 import SwitchAppModal from '../components/modals/SwitchAppModal';
-import AccountModal from '../components/modals/AccountModal'; // Added import for AccountModal
-import WhatsAppLiveChatModal from '../components/modals/WhatsAppLiveChatModal'; // Added for WhatsApp/LiveChat modal
-import { // Added Sheet components for mobile menu
+import AccountModal from '../components/modals/AccountModal';
+import SocialProofModal from '../components/modals/SocialProofModal';
+import MaintenanceModeControl from '../components/MaintenanceModeControl';
+import WhatsAppLiveChatModal from '../components/modals/WhatsAppLiveChatModal';
+
+import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -76,9 +79,11 @@ export default function SuperAdminDashboard() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [feedback, setFeedback] = useState({ isOpen: false, type: '', title: '', message: '' });
 
-  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false); // New state for AccountModal
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // New state for mobile menu
-  const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false); // New state for WhatsApp/LiveChat modal
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSocialProofModalOpen, setIsSocialProofModalOpen] = useState(false);
+  const [showMaintenanceControl, setShowMaintenanceControl] = useState(false);
+  const [isWhatsAppSettingsModalOpen, setIsWhatsAppSettingsModalOpen] = useState(false);
 
   // Email settings state
   const [emailSettings, setEmailSettings] = useState({
@@ -101,10 +106,9 @@ export default function SuperAdminDashboard() {
 
   const loadData = async () => {
     setIsLoading(true);
-    setError(null); // Clear any previous errors
-    setSuccess(null); // Clear any previous success messages
+    setError(null);
+    setSuccess(null);
     try {
-      // Get current user from Supabase auth
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
       
       if (authError) {
@@ -118,7 +122,6 @@ export default function SuperAdminDashboard() {
         return;
       }
       
-      // Get current user profile from users table
       const { data: currentUserProfile, error: profileError } = await supabase
         .from('users')
         .select('*')
@@ -127,13 +130,11 @@ export default function SuperAdminDashboard() {
       
       if (profileError) {
         console.error('Profile fetch error:', profileError);
-        // Still set the auth user as current user
         setCurrentUser(authUser);
       } else {
         setCurrentUser(currentUserProfile);
       }
       
-      // Fetch all users
       const { data: users, error: usersError } = await supabase
         .from('users')
         .select('*')
@@ -147,14 +148,12 @@ export default function SuperAdminDashboard() {
       
       setUsers(users || []);
       
-      // Find the app creator (usually the first user created or with a specific flag)
-      // For now, we'll assume the creator has superadmin role and was created first
       const sortedUsers = [...(users || [])].sort((a, b) => {
         const dateA = a.created_at || a.created_date || new Date(0);
         const dateB = b.created_at || b.created_date || new Date(0);
         return new Date(dateA) - new Date(dateB);
       });
-      const creator = sortedUsers.find(u => u.role === 'superadmin') || sortedUsers[0];
+      const creator = sortedUsers.find(u => u.role === 'super_admin') || sortedUsers[0];
       if (creator) {
         setAppCreatorId(creator.id);
       }
@@ -179,7 +178,6 @@ export default function SuperAdminDashboard() {
   };
 
   const handleRoleChange = async (user, newRole) => {
-    // Prevent role change for app creator
     if (user.id === appCreatorId) {
       setFeedback({
         isOpen: true,
@@ -209,7 +207,6 @@ export default function SuperAdminDashboard() {
     } catch (error) {
       console.error('Error changing user role:', error);
       
-      // Handle specific error messages
       if (error.message?.includes('creator')) {
         setFeedback({
           isOpen: true,
@@ -229,7 +226,6 @@ export default function SuperAdminDashboard() {
   };
 
   const handleSuspendUser = async (user) => {
-    // Prevent suspending app creator
     if (user.id === appCreatorId) {
       setFeedback({
         isOpen: true,
@@ -268,7 +264,6 @@ export default function SuperAdminDashboard() {
   };
 
   const handleDeleteUser = async (user) => {
-    // Prevent deleting app creator
     if (user.id === appCreatorId) {
       setFeedback({
         isOpen: true,
@@ -327,23 +322,21 @@ export default function SuperAdminDashboard() {
     setFeedback({ isOpen: true, type: 'success', title: 'App Switched!', message });
   };
 
-  // New logout handler
   const handleLogout = async () => {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) {
         throw error;
       }
-      window.location.reload(); // Reload the page after successful logout
+      window.location.reload();
     } catch (error) {
       console.error('Error logging out:', error);
-      // Optionally, show a feedback message for logout error
     }
   };
 
   const getRoleIcon = (role) => {
     switch(role) {
-      case 'superadmin': return <Crown className="w-4 h-4 text-purple-600" />;
+      case 'super_admin': return <Crown className="w-4 h-4 text-purple-600" />;
       case 'admin': return <Shield className="w-4 h-4 text-blue-600" />;
       default: return <Users className="w-4 h-4 text-gray-600" />;
     }
@@ -351,7 +344,7 @@ export default function SuperAdminDashboard() {
 
   const getRoleBadge = (role) => {
     switch(role) {
-      case 'superadmin':
+      case 'super_admin':
         return <Badge className="bg-purple-100 text-purple-800">Super Admin</Badge>;
       case 'admin':
         return <Badge className="bg-blue-100 text-blue-800">Admin</Badge>;
@@ -369,7 +362,7 @@ export default function SuperAdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 super-admin-page">
       {/* Header */}
       <header className="bg-white border-b border-gray-100 px-4 lg:px-8 py-4 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
@@ -503,7 +496,6 @@ export default function SuperAdminDashboard() {
               <p className="text-sm text-gray-500 hidden md:block">Manage all system users and their roles</p>
             </div>
             <div className="flex items-center gap-2">
-              {/* Refresh Button */}
               <Button 
                 variant="outline" 
                 size="sm" 
@@ -514,11 +506,9 @@ export default function SuperAdminDashboard() {
                 <RotateCcw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
                 Refresh
               </Button>
-              {/* Mobile Add User Button */}
               <Button onClick={() => setIsAddUserModalOpen(true)} className="bg-green-600 hover:bg-green-700 md:hidden" size="icon">
                 <UserPlus className="w-4 h-4" />
               </Button>
-              {/* Desktop Add User Button */}
               <Button onClick={() => setIsAddUserModalOpen(true)} className="bg-green-600 hover:bg-green-700 hidden md:flex">
                 <UserPlus className="w-4 h-4 mr-2" />
                 Add New User
@@ -547,8 +537,6 @@ export default function SuperAdminDashboard() {
               </Button>
             </div>
           )}
-
-
 
           {/* Search Bar */}
           <div className="mb-6">
@@ -659,7 +647,7 @@ export default function SuperAdminDashboard() {
                             <SelectContent>
                               <SelectItem value="user">User</SelectItem>
                               <SelectItem value="admin">Admin</SelectItem>
-                              <SelectItem value="superadmin">Super Admin</SelectItem>
+                              <SelectItem value="super_admin">Super Admin</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -783,7 +771,43 @@ export default function SuperAdminDashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           <Card 
             className="p-6 hover:shadow-md transition-shadow cursor-pointer group"
-            onClick={() => setIsWhatsAppModalOpen(true)}
+            onClick={() => setIsSocialProofModalOpen(true)}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <Activity className="w-8 h-8 text-blue-600 group-hover:text-blue-700" />
+              <div>
+                <h3 className="font-semibold text-gray-900 group-hover:text-blue-700">
+                  Social Proof Settings
+                </h3>
+                <p className="text-sm text-gray-500">Manage social proof system</p>
+              </div>
+            </div>
+            <p className="text-xs text-gray-600">
+              Configure social proof notifications, maintenance, and system controls.
+            </p>
+          </Card>
+
+          <Card 
+            className="p-6 hover:shadow-md transition-shadow cursor-pointer group"
+            onClick={() => setShowMaintenanceControl(true)}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <Shield className="w-8 h-8 text-purple-600 group-hover:text-purple-700" />
+              <div>
+                <h3 className="font-semibold text-gray-900 group-hover:text-purple-700">
+                  Maintenance Mode
+                </h3>
+                <p className="text-sm text-gray-500">Control system maintenance status</p>
+              </div>
+            </div>
+            <p className="text-xs text-gray-600">
+              Temporarily disable the application to perform maintenance or upgrades.
+            </p>
+          </Card>
+
+          <Card 
+            className="p-6 hover:shadow-md transition-shadow cursor-pointer group"
+            onClick={() => setIsWhatsAppSettingsModalOpen(true)}
           >
             <div className="flex items-center gap-3 mb-4">
               <MessageCircle className="w-8 h-8 text-green-600 group-hover:text-green-700" />
@@ -791,14 +815,36 @@ export default function SuperAdminDashboard() {
                 <h3 className="font-semibold text-gray-900 group-hover:text-green-700">
                   WhatsApp/LiveChat Settings
                 </h3>
-                <p className="text-sm text-gray-500">Configure customer support chat</p>
+                <p className="text-sm text-gray-500">Configure communication channels</p>
               </div>
             </div>
             <p className="text-xs text-gray-600">
-              Set up WhatsApp integration and live chat widgets for customer support.
+              Set up WhatsApp integration and live chat system settings.
             </p>
           </Card>
         </div>
+
+        {/* Maintenance Mode Control Section */}
+        {showMaintenanceControl && (
+          <div className="mt-6 p-6 bg-gray-50 rounded-lg border">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Maintenance Mode Control</h3>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowMaintenanceControl(false)}
+              >
+                Close
+              </Button>
+            </div>
+            <MaintenanceModeControl 
+              isOpen={showMaintenanceControl} 
+              onClose={() => setShowMaintenanceControl(false)} 
+            />
+          </div>
+        )}
+
+
 
         {/* Email Management */}
         <Card className="p-6">
@@ -912,10 +958,28 @@ export default function SuperAdminDashboard() {
         onClose={() => setIsAccountModalOpen(false)}
       />
 
-      {/* WhatsApp/LiveChat Modal */}
+      {/* Social Proof Modal */}
+      <SocialProofModal
+        isOpen={isSocialProofModalOpen}
+        onClose={() => setIsSocialProofModalOpen(false)}
+      />
+
+      {/* WhatsApp/LiveChat Settings Modal */}
       <WhatsAppLiveChatModal
-        isOpen={isWhatsAppModalOpen}
-        onClose={() => setIsWhatsAppModalOpen(false)}
+        isOpen={isWhatsAppSettingsModalOpen}
+        onClose={() => setIsWhatsAppSettingsModalOpen(false)}
+        onSettingsSaved={() => {
+          // Refresh the WhatsApp/LiveChat integration
+          if (window.refreshWhatsAppLiveChat) {
+            window.refreshWhatsAppLiveChat();
+          }
+        }}
+      />
+
+      {/* Maintenance Mode Control Modal */}
+      <MaintenanceModeControl
+        isOpen={showMaintenanceControl}
+        onClose={() => setShowMaintenanceControl(false)}
       />
 
       {/* Feedback Modal */}

