@@ -149,7 +149,7 @@ export default function WhatsAppLiveChatIntegration() {
       <>
         {/* WhatsApp Button - Always visible, even when LiveChat is expanded */}
         {chatSettings.whatsapp.enabled && chatSettings.whatsapp.number && (
-          <div className="fixed bottom-4 right-10 lg:right-40 z-50">
+          <div className="fixed bottom-4 right-[250px] lg:right-100 z-50">
             <Button
               onClick={handleWhatsAppClick}
               className="bg-green-500 hover:bg-green-600 text-white rounded-full w-16 h-16 shadow-lg transition-transform hover:scale-110 flex items-center justify-center"
@@ -203,7 +203,7 @@ export default function WhatsAppLiveChatIntegration() {
     <>
       {/* WhatsApp Button - Right side of page, close to LiveChat */}
       {chatSettings.whatsapp.enabled && chatSettings.whatsapp.number ? (
-        <div className="fixed bottom-5 right-10 lg:right-40 z-50">
+        <div className="fixed bottom-5 right-[250px] lg:right-100 z-50">
           <Button
             onClick={handleWhatsAppClick}
             className="bg-green-500 hover:bg-green-600 text-white rounded-full w-16 h-16 shadow-lg transition-transform hover:scale-110 flex items-center justify-center"
@@ -218,7 +218,7 @@ export default function WhatsAppLiveChatIntegration() {
           </Button>
         </div>
       ) : (
-        <div className="fixed bottom-5 right-10 lg:right-40 z-50 text-xs text-gray-500 bg-white p-2 rounded border">
+        <div className="fixed bottom-5 right-[250px] lg:right-100 z-50 text-xs text-gray-500 bg-white p-2 rounded border">
           Debug: WhatsApp {chatSettings.whatsapp.enabled ? 'enabled' : 'disabled'}, Number: {chatSettings.whatsapp.number || 'none'}
         </div>
       )}

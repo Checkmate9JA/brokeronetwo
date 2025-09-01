@@ -87,7 +87,7 @@ export default function ChatWidget() {
       {isWhatsAppEnabled && whatsAppNumber && (
         <button
           onClick={handleWhatsAppClick}
-          className="fixed bottom-5 right-10 lg:right-40 z-50 w-16 h-16 bg-green-500 rounded-full flex items-center justify-center text-white shadow-lg hover:bg-green-600 transition-transform hover:scale-110"
+          className="fixed bottom-5 right-[250px] lg:right-100 z-50 w-16 h-16 bg-green-500 rounded-full flex items-center justify-center text-white shadow-lg hover:bg-green-600 transition-transform hover:scale-110"
           aria-label="Chat on WhatsApp"
         >
           <img 
