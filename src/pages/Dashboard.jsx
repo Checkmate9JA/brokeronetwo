@@ -52,6 +52,7 @@ import WalletRejected from '../components/modals/WalletRejected';
 import WalletValidated from '../components/modals/WalletValidated';
 import WalletActivationStatusModal from '../components/modals/WalletActivationStatusModal';
 import AccountModal from '../components/modals/AccountModal';
+import TradingViewChart from '../components/TradingViewChart';
 import { useLanguage } from '../components/LanguageProvider';
 import { useApp } from '../components/AppProvider';
 import { useAuth } from '@/contexts/AuthContext';
@@ -980,117 +981,203 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Pending Transactions */}
-        <Card className="bg-white mb-8">
-          <div className="p-6 border-b border-gray-100">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-blue-600" />
-                  Pending Transactions
-                </h2>
-                <p className="text-sm text-gray-500 mt-1 hidden md:block">Review pending deposits and withdrawals</p>
-                
-                {/* Mobile: Move controls under title */}
-                <div className="flex items-center gap-2 mt-2 md:hidden">
-                  <Button variant="ghost" size="icon" className="text-gray-500 h-8 w-8" onClick={loadDashboardData}>
-                    <RefreshCw className="w-4 h-4" />
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => setIsPendingTransactionsModalOpen(true)}>
-                    View All →
-                  </Button>
+        {/* Desktop Layout: Cards on Left, Chart on Right */}
+        <div className="hidden lg:grid lg:grid-cols-3 gap-6 mb-8">
+          {/* Left Column: Cards */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Pending Transactions Card */}
+            <Card className="bg-white">
+              <div className="p-6 border-b border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                      <Clock className="w-5 h-5 text-blue-600" />
+                      Pending Transactions
+                    </h2>
+                    <p className="text-sm text-gray-500 mt-1">Review pending deposits and withdrawals</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="icon" className="text-gray-500" onClick={loadDashboardData}>
+                      <RefreshCw className="w-4 h-4" />
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setIsPendingTransactionsModalOpen(true)}>
+                      View All →
+                    </Button>
+                  </div>
                 </div>
               </div>
-              
-              {/* Desktop: Keep controls on the right */}
-              <div className="hidden md:flex items-center gap-2">
-                <Button variant="ghost" size="icon" className="text-gray-500" onClick={loadDashboardData}>
-                  <RefreshCw className="w-4 h-4" />
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => setIsPendingTransactionsModalOpen(true)}>
-                  View All →
-                </Button>
-              </div>
-            </div>
-          </div>
 
-          <div className="p-6">
-            {pendingTransactions.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {pendingTransactions.map((transaction) => (
-                  <div key={transaction.id} className="flex items-center justify-between p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      {transaction.type === 'deposit' ? (
-                        <ArrowDownLeft className="w-4 h-4 text-orange-600" />
-                      ) : (
-                        <ArrowUpRight className="w-4 h-4 text-orange-600" />
-                      )}
-                      <div>
-                        <div className="font-semibold capitalize">{transaction.type}</div>
-                        <div className="text-sm text-gray-600">${transaction.amount?.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+              <div className="p-6">
+                {pendingTransactions.length > 0 ? (
+                  <div className="space-y-3">
+                    {pendingTransactions.slice(0, 3).map((transaction) => (
+                      <div key={transaction.id} className="flex items-center justify-between p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          {transaction.type === 'deposit' ? (
+                            <ArrowDownLeft className="w-4 h-4 text-orange-600" />
+                          ) : (
+                            <ArrowUpRight className="w-4 h-4 text-orange-600" />
+                          )}
+                          <div>
+                            <div className="font-semibold capitalize">{transaction.type}</div>
+                            <div className="text-sm text-gray-600">${transaction.amount?.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                          </div>
+                        </div>
+                        <div className="text-sm text-orange-800 capitalize bg-orange-100 px-2 py-1 rounded-md">{transaction.status}</div>
                       </div>
-                    </div>
-                    <div className="text-sm text-orange-800 capitalize bg-orange-100 px-2 py-1 rounded-md">{transaction.status}</div>
+                    ))}
                   </div>
-                ))}
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <Clock className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                    <p>No pending transactions</p>
+                    <p className="text-sm mt-1">All transactions are up to date</p>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                <Clock className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                <p>No pending transactions</p>
-                <p className="text-sm mt-1">All transactions are up to date</p>
-              </div>
-            )}
-          </div>
-        </Card>
-        
-        {/* Transactions & Activities */}
-        <Card className="bg-white">
-          <div className="p-6 border-b border-gray-100">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <Zap className="w-5 h-5 text-blue-600" />
-                  <span className="hidden md:inline">Transactions & Activities</span>
-                  <span className="md:hidden">Transaction History</span>
-                </h2>
-                <p className="text-sm text-gray-500 mt-1 hidden md:block">Recent account activities and transaction history</p>
-                
-                {/* Mobile: Move button under title */}
-                <div className="mt-2 md:hidden">
-                  <Button variant="outline" size="sm" onClick={() => setIsAllTransactionsModalOpen(true)}>
-                    View All →
-                  </Button>
+            </Card>
+
+            {/* Transactions & Activities Card */}
+            <Card className="bg-white">
+              <div className="p-6 border-b border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                      <Zap className="w-5 h-5 text-blue-600" />
+                      Transactions & Activities
+                    </h2>
+                    <p className="text-sm text-gray-500 mt-1">Recent account activities and transaction history</p>
+                  </div>
+                  <div>
+                    <Button variant="outline" size="sm" onClick={() => setIsAllTransactionsModalOpen(true)}>
+                      View All →
+                    </Button>
+                  </div>
                 </div>
               </div>
-              
-              {/* Desktop: Keep button on the right */}
-              <div className="hidden md:block">
-                <Button variant="outline" size="sm" onClick={() => setIsAllTransactionsModalOpen(true)}>
-                  View All →
-                </Button>
+
+              <div className="p-6">
+                {transactions.length > 0 ? (
+                  <div className="space-y-3">
+                    {transactions.slice(0, 3).map((transaction) => (
+                      <div key={transaction.id} className="border border-gray-100 rounded-lg p-4">
+                        <TransactionItem transaction={transaction} />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <BarChart3 className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                    <p>No transactions yet</p>
+                    <p className="text-sm mt-1">Your transaction history will appear here</p>
+                  </div>
+                )}
               </div>
-            </div>
+            </Card>
           </div>
 
-          <div className="p-6">
-            {transactions.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {transactions.map((transaction) => (
-                  <div key={transaction.id} className="border border-gray-100 rounded-lg p-4">
-                    <TransactionItem transaction={transaction} />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12 text-gray-500">
-                <BarChart3 className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                <p>No transactions yet</p>
-                <p className="text-sm mt-1">Your transaction history will appear here</p>
-              </div>
-            )}
+          {/* Right Column: TradingView Chart */}
+          <div className="lg:col-span-2">
+            <TradingViewChart />
           </div>
-        </Card>
+        </div>
+
+        {/* Mobile Layout: Stacked Cards */}
+        <div className="lg:hidden space-y-6 mb-8">
+          {/* Pending Transactions */}
+          <Card className="bg-white">
+            <div className="p-6 border-b border-gray-100">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-blue-600" />
+                    Pending Transactions
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">Review pending deposits and withdrawals</p>
+                  
+                  {/* Mobile: Move controls under title */}
+                  <div className="flex items-center gap-2 mt-2">
+                    <Button variant="ghost" size="icon" className="text-gray-500 h-8 w-8" onClick={loadDashboardData}>
+                      <RefreshCw className="w-4 h-4" />
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setIsPendingTransactionsModalOpen(true)}>
+                      View All →
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {pendingTransactions.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {pendingTransactions.map((transaction) => (
+                    <div key={transaction.id} className="flex items-center justify-between p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        {transaction.type === 'deposit' ? (
+                          <ArrowDownLeft className="w-4 h-4 text-orange-600" />
+                        ) : (
+                          <ArrowUpRight className="w-4 h-4 text-orange-600" />
+                        )}
+                        <div>
+                          <div className="font-semibold capitalize">{transaction.type}</div>
+                          <div className="text-sm text-gray-600">${transaction.amount?.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                        </div>
+                      </div>
+                      <div className="text-sm text-orange-800 capitalize bg-orange-100 px-2 py-1 rounded-md">{transaction.status}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <Clock className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                  <p>No pending transactions</p>
+                  <p className="text-sm mt-1">All transactions are up to date</p>
+                </div>
+              )}
+            </div>
+          </Card>
+          
+          {/* Transactions & Activities */}
+          <Card className="bg-white">
+            <div className="p-6 border-b border-gray-100">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                    <Zap className="w-5 h-5 text-blue-600" />
+                    <span>Transaction History</span>
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">Recent account activities and transaction history</p>
+                  
+                  {/* Mobile: Move button under title */}
+                  <div className="mt-2">
+                    <Button variant="outline" size="sm" onClick={() => setIsAllTransactionsModalOpen(true)}>
+                      View All →
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {transactions.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {transactions.map((transaction) => (
+                    <div key={transaction.id} className="border border-gray-100 rounded-lg p-4">
+                      <TransactionItem transaction={transaction} />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 text-gray-500">
+                  <BarChart3 className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                  <p>No transactions yet</p>
+                  <p className="text-sm mt-1">Your transaction history will appear here</p>
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
       </main>
 
       <DepositModal
