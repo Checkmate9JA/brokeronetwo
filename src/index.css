@@ -2,25 +2,61 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Hide default Google Translate widget */
+/* Hide default Google Translate widget but keep functionality */
 .goog-te-banner-frame {
   display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  overflow: hidden !important;
 }
 
 .goog-te-gadget {
   display: none !important;
+  visibility: hidden !important;
 }
 
 .goog-te-combo {
   display: none !important;
+  visibility: hidden !important;
+  position: absolute !important;
+  left: -9999px !important;
+  opacity: 0 !important;
 }
 
 .goog-te-banner-frame.skiptranslate {
   display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  overflow: hidden !important;
 }
 
+/* Ensure body positioning is correct after translation */
 body {
   top: 0px !important;
+  position: static !important;
+}
+
+/* Hide any other Google Translate elements that might appear */
+.goog-te-menu-value {
+  display: none !important;
+}
+
+.goog-te-menu {
+  display: none !important;
+}
+
+.goog-te-banner-frame {
+  display: none !important;
+}
+
+/* Custom translation loading indicator */
+.translate-loading {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 

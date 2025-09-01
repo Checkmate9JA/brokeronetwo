@@ -126,70 +126,167 @@ const SUPPORTED_LANGUAGES = [
 export default function GoogleTranslate({ variant = 'icon' }) {
   const [currentLanguage, setCurrentLanguage] = useState('en');
   const [isTranslating, setIsTranslating] = useState(false);
-  const translateRef = useRef(null);
+  const [translateWidget, setTranslateWidget] = useState(null);
+  const translateElementRef = useRef(null);
 
   useEffect(() => {
     // Initialize Google Translate
     const initGoogleTranslate = () => {
-      if (window.google && window.google.translate) {
-        return;
-      }
-
-      // Create Google Translate script if it doesn't exist
-      if (!document.getElementById('google-translate-script')) {
-        const script = document.createElement('script');
-        script.id = 'google-translate-script';
-        script.src = '//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
-        script.async = true;
-        document.head.appendChild(script);
-      }
-
-      // Define the callback function
-      window.googleTranslateElementInit = () => {
+      // Wait for Google Translate to be available
+      const checkGoogleTranslate = () => {
         if (window.google && window.google.translate) {
-          new window.google.translate.TranslateElement({
-            pageLanguage: 'en',
-            includedLanguages: SUPPORTED_LANGUAGES.map(lang => lang.code).join(','),
-            layout: window.google.translate.TranslateElement.InlineLayout.SIMPLE,
-            autoDisplay: false,
-          }, 'google_translate_element');
+          // Create the translate widget
+          try {
+            const widget = new window.google.translate.TranslateElement({
+              pageLanguage: 'en',
+              includedLanguages: SUPPORTED_LANGUAGES.map(lang => lang.code).join(','),
+              layout: window.google.translate.TranslateElement.InlineLayout.SIMPLE,
+              autoDisplay: false,
+            }, 'google_translate_element');
+            
+            setTranslateWidget(widget);
+            console.log('Google Translate widget created successfully');
+          } catch (error) {
+            console.error('Error creating Google Translate widget:', error);
+          }
+          return;
         }
+        
+        // If not available yet, wait and try again
+        setTimeout(checkGoogleTranslate, 100);
       };
+      
+      checkGoogleTranslate();
     };
 
     initGoogleTranslate();
   }, []);
 
-  const handleLanguageChange = (languageCode) => {
+  const handleLanguageChange = async (languageCode) => {
+    console.log(`Attempting to translate to: ${languageCode}`);
+    
     if (languageCode === 'auto') {
       // Reset to original language
-      if (window.google && window.google.translate) {
-        const select = document.querySelector('.goog-te-combo');
-        if (select) {
-          select.value = 'en';
-          select.dispatchEvent(new Event('change'));
-        }
-      }
       setCurrentLanguage('en');
+      setIsTranslating(true);
+      
+      try {
+        // Use Google Translate's restore function to reset to original
+        if (window.google && window.google.translate) {
+          // Find and click the restore button if it exists
+          const restoreButton = document.querySelector('.goog-te-banner-frame .goog-te-button button');
+          if (restoreButton) {
+            restoreButton.click();
+            console.log('Restore button clicked');
+          } else {
+            // Alternative: reload the page to reset
+            console.log('No restore button found, reloading page');
+            window.location.reload();
+          }
+        }
+      } catch (error) {
+        console.error('Error restoring original language:', error);
+        // Fallback: reload page
+        window.location.reload();
+      }
+      
+      setTimeout(() => setIsTranslating(false), 1000);
       return;
     }
 
     setCurrentLanguage(languageCode);
     setIsTranslating(true);
 
-    // Use Google Translate API to change language
-    if (window.google && window.google.translate) {
-      const select = document.querySelector('.goog-te-combo');
-      if (select) {
-        select.value = languageCode;
-        select.dispatchEvent(new Event('change'));
+    try {
+      console.log('Google Translate available:', !!window.google?.translate);
+      console.log('Translate widget:', !!translateWidget);
+      
+      // Method 1: Try to use the translate widget's methods
+      if (translateWidget && translateWidget.translatePage) {
+        console.log('Using widget.translatePage method');
+        translateWidget.translatePage(languageCode);
+      } else {
+        // Method 2: Find the language selector and change it
+        console.log('Looking for language selector');
+        const languageSelect = document.querySelector('.goog-te-combo');
+        if (languageSelect) {
+          console.log('Found language selector, changing value');
+          languageSelect.value = languageCode;
+          languageSelect.dispatchEvent(new Event('change'));
+        } else {
+          // Method 3: Create a new translate element with the target language
+          console.log('Creating new translate element');
+          await createTemporaryTranslateElement(languageCode);
+        }
+      }
+    } catch (error) {
+      console.error('Translation error:', error);
+      
+      // Fallback: try to manually trigger Google Translate
+      try {
+        await createTemporaryTranslateElement(languageCode);
+      } catch (fallbackError) {
+        console.error('Fallback translation failed:', fallbackError);
       }
     }
 
-    // Fallback: manually trigger translation
+    // Reset translating state
     setTimeout(() => {
       setIsTranslating(false);
-    }, 1000);
+    }, 3000);
+  };
+
+  const createTemporaryTranslateElement = async (languageCode) => {
+    return new Promise((resolve) => {
+      console.log('Creating temporary translate element for:', languageCode);
+      
+      // Create a temporary visible element to trigger translation
+      const tempDiv = document.createElement('div');
+      tempDiv.id = 'temp_translate_element';
+      tempDiv.style.position = 'absolute';
+      tempDiv.style.left = '-9999px';
+      tempDiv.style.top = '-9999px';
+      tempDiv.style.width = '1px';
+      tempDiv.style.height = '1px';
+      tempDiv.style.overflow = 'hidden';
+      document.body.appendChild(tempDiv);
+      
+      try {
+        const tempWidget = new window.google.translate.TranslateElement({
+          pageLanguage: 'en',
+          includedLanguages: languageCode,
+          layout: window.google.translate.TranslateElement.InlineLayout.SIMPLE,
+          autoDisplay: false,
+        }, 'temp_translate_element');
+        
+        // Wait a bit for the widget to initialize, then trigger translation
+        setTimeout(() => {
+          const select = tempDiv.querySelector('.goog-te-combo');
+          if (select) {
+            console.log('Found temporary language selector, triggering translation');
+            select.value = languageCode;
+            select.dispatchEvent(new Event('change'));
+          } else {
+            console.log('No temporary language selector found');
+          }
+          
+          // Remove the temporary element after a delay
+          setTimeout(() => {
+            if (tempDiv.parentNode) {
+              tempDiv.parentNode.removeChild(tempDiv);
+            }
+          }, 2000);
+          
+          resolve();
+        }, 500);
+      } catch (error) {
+        console.error('Error creating temporary translate element:', error);
+        if (tempDiv.parentNode) {
+          tempDiv.parentNode.removeChild(tempDiv);
+        }
+        resolve();
+      }
+    });
   };
 
   const getCurrentLanguageInfo = () => {
@@ -224,11 +321,19 @@ export default function GoogleTranslate({ variant = 'icon' }) {
               {currentLanguage === language.code && (
                 <span className="text-blue-600">✓</span>
               )}
+              {isTranslating && currentLanguage === language.code && (
+                <span className="text-gray-400 translate-loading">⟳</span>
+              )}
             </DropdownMenuItem>
           ))}
         </DropdownMenuContent>
         {/* Hidden Google Translate element */}
-        <div id="google_translate_element" className="hidden" />
+        <div 
+          ref={translateElementRef}
+          id="google_translate_element" 
+          className="hidden"
+          style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}
+        />
       </DropdownMenu>
     );
   }
@@ -262,11 +367,19 @@ export default function GoogleTranslate({ variant = 'icon' }) {
             {currentLanguage === language.code && (
               <span className="text-blue-600">✓</span>
             )}
+            {isTranslating && currentLanguage === language.code && (
+              <span className="text-gray-400 translate-loading">⟳</span>
+            )}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
       {/* Hidden Google Translate element */}
-      <div id="google_translate_element" className="hidden" />
+      <div 
+        ref={translateElementRef}
+        id="google_translate_element" 
+        className="hidden"
+        style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}
+      />
     </DropdownMenu>
   );
 }
