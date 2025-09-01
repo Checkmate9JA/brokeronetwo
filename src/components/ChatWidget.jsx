@@ -83,11 +83,11 @@ export default function ChatWidget() {
 
   return (
     <>
-      {/* WhatsApp Floating Button (Bottom-Left) */}
+      {/* WhatsApp Floating Button (Bottom-Right, close to LiveChat) */}
       {isWhatsAppEnabled && whatsAppNumber && (
         <button
           onClick={handleWhatsAppClick}
-          className="fixed bottom-5 left-5 z-50 w-16 h-16 bg-green-500 rounded-full flex items-center justify-center text-white shadow-lg hover:bg-green-600 transition-transform hover:scale-110"
+          className="fixed bottom-5 right-10 lg:right-40 z-50 w-16 h-16 bg-green-500 rounded-full flex items-center justify-center text-white shadow-lg hover:bg-green-600 transition-transform hover:scale-110"
           aria-label="Chat on WhatsApp"
         >
           <img 

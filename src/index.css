@@ -237,3 +237,52 @@ button:focus-visible {
     --ring: 0 0% 3.9% !important;
   }
 }
+
+/* Inline header placement for GTranslate when used inside header */
+.gtranslate_header .gt_float_switcher,
+.gtranslate_header #gt_float_switcher {
+  position: static !important;
+  bottom: auto !important;
+  right: auto !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.gtranslate_header .gt_selected,
+.gtranslate_header .gt_switcher,
+.gtranslate_header .gt_options {
+  font-size: 12px !important;
+}
+
+/* Ensure spacing in header */
+.gtranslate_header {
+  display: flex;
+  align-items: center;
+}
+
+/* Keep the general floating behavior elsewhere as previously set */
+.gtranslate_wrapper .gt_float_switcher,
+#gt_float_switcher,
+.gt_float_switcher {
+  bottom: 220px !important;
+  right: 18px !important;
+  z-index: 2147483647 !important;
+}
+
+@media (max-width: 1024px) {
+  .gtranslate_wrapper .gt_float_switcher,
+  #gt_float_switcher,
+  .gt_float_switcher {
+    bottom: 200px !important;
+    right: 16px !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .gtranslate_wrapper .gt_float_switcher,
+  #gt_float_switcher,
+  .gt_float_switcher {
+    bottom: 170px !important;
+    right: 14px !important;
+  }
+}

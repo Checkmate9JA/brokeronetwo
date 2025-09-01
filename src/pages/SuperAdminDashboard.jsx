@@ -49,7 +49,7 @@ import AccountModal from '../components/modals/AccountModal';
 import SocialProofModal from '../components/modals/SocialProofModal';
 import MaintenanceModeControl from '../components/MaintenanceModeControl';
 import WhatsAppLiveChatModal from '../components/modals/WhatsAppLiveChatModal';
-import GoogleTranslate from '../components/GoogleTranslate';
+
 
 import {
   Sheet,
@@ -382,44 +382,25 @@ export default function SuperAdminDashboard() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-3">
-            <GoogleTranslate variant="icon" />
+            <div className="gtranslate_wrapper gtranslate_header" />
+            
             <Button
               variant="outline"
               onClick={() => setIsSwitchAppModalOpen(true)}
               className="text-purple-600 border-purple-200 hover:bg-purple-50"
             >
-              <RotateCcw className="w-4 h-4 mr-2" />
+              <Crown className="w-4 h-4 mr-2" />
               Switch App
             </Button>
-
-            <Link to={createPageUrl('AdminDashboard')}>
-              <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 hover:bg-blue-50">
-                <Shield className="w-4 h-4 mr-2" />
-                Admin View
-              </Button>
-            </Link>
-
-            <Link to={createPageUrl('Dashboard')}>
-              <Button variant="outline" size="sm" className="text-green-600 border-green-200 hover:bg-green-50">
-                <UserIcon className="w-4 h-4 mr-2" />
-                User View
-              </Button>
-            </Link>
-
-            <Button variant="ghost" size="sm" onClick={() => setIsAccountModalOpen(true)} className="text-gray-600">
-              <UserIcon className="w-4 h-4 mr-2" />
-              Account
-            </Button>
-
-            <Button variant="outline" size="sm" onClick={handleLogout} className="text-red-600 border-red-200 hover:bg-red-50">
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
+            <Button variant="outline" onClick={() => setIsAccountModalOpen(true)}>
+              <UserIcon className="w-4 h-4 mr-2" /> Account
             </Button>
           </div>
 
           {/* Mobile Navigation */}
           <div className="md:hidden flex items-center gap-2">
-            <GoogleTranslate variant="button" />
+            <div className="gtranslate_wrapper gtranslate_header" />
+            
             <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon">

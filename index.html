@@ -5,19 +5,35 @@
     <link rel="icon" type="image/svg+xml" href="https://base44.com/logo_v2.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LedgerCoinShield</title>
+    <link rel="preconnect" href="https://s3.tradingview.com" crossorigin>
+    <link rel="preconnect" href="https://s.tradingview.com" crossorigin>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
-    <!-- Google Translate Script -->
-    <script type="text/javascript">
-      // Global callback function for Google Translate
-      window.googleTranslateElementInit = function() {
-        // This function will be called by Google Translate when it's ready
-        // The actual initialization is now handled by the React component
-        console.log('Google Translate is ready');
-      };
+    <!-- GTranslate Widget -->
+    <div class="gtranslate_wrapper"></div>
+    <script>
+        window.gtranslateSettings = {
+            default_language: "en",
+            alt_flags:{"en":"usa"},
+            wrapper_selector: ".gtranslate_wrapper",
+            flag_style: "3d",
+        };
     </script>
-    <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+    <script src="https://cdn.gtranslate.net/widgets/latest/float.js" defer></script>
+
+    <script>
+        // Function to hide the loader
+        function hideLoader() {
+            const loader = document.getElementById('page-loader');
+            if (loader) {
+                loader.style.display = 'none';
+            }
+        }
+
+        // Set a timeout to hide the loader after 1 second
+        setTimeout(hideLoader, 1000);
+    </script>
   </body>
 </html>

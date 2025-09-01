@@ -61,7 +61,7 @@ import { useApp } from '../components/AppProvider';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import ThemeToggle from '../components/ThemeToggle';
-import GoogleTranslate from '../components/GoogleTranslate';
+
 import { formatCurrency, getUserPreferredCurrency } from '@/utils/currencyUtils';
 import { useUserCurrency } from '@/hooks/useUserCurrency';
 
@@ -603,10 +603,11 @@ export default function Dashboard() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-3">
+            <div className="gtranslate_wrapper gtranslate_header" />
             
             {user ? (
               <>
-                <GoogleTranslate variant="icon" />
+
                 <ThemeToggle />
                 <Button variant="ghost" size="sm" onClick={() => setIsAccountModalOpen(true)} className="text-gray-600 dark:text-white">
                   <UserIcon className="w-4 h-4 mr-2" />
@@ -619,7 +620,7 @@ export default function Dashboard() {
               </>
             ) : (
               <>
-                <GoogleTranslate variant="icon" />
+
                 <Link to="/Auth">
                   <Button variant="ghost" size="sm" className="text-gray-600">
                       Login
@@ -635,7 +636,8 @@ export default function Dashboard() {
           </div>
           {/* Mobile Navigation */}
           <div className="md:hidden flex items-center gap-2">
-            <GoogleTranslate variant="button" />
+            <div className="gtranslate_wrapper gtranslate_header" />
+            
             <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon">

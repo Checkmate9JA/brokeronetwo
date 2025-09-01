@@ -4,13 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, TrendingUp, TrendingDown, Users, Play, Pause, BarChart3, Clock, X, CopyIcon } from 'lucide-react';
+import { ArrowLeft, TrendingUp, TrendingDown, Users, Play, Pause, BarChart3, Clock, X, CopyIcon, Menu } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import ThemeToggle from '../components/ThemeToggle';
-import GoogleTranslate from '../components/GoogleTranslate';
+
 import WhatsAppLiveChatIntegration from '../components/WhatsAppLiveChatIntegration';
 
 import PlaceTradeModal from '../components/modals/PlaceTradeModal';
@@ -22,6 +22,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import SocialProof from '../components/SocialProof';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
 const formatCurrency = (amount) => {
   return new Intl.NumberFormat('en-US', {
@@ -923,254 +924,71 @@ export default function TradingPlatform() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <GoogleTranslate variant="icon" />
+          {/* Right side controls */}
+          <div className="hidden md:flex items-center gap-3">
+            <div className="gtranslate_wrapper gtranslate_header" />
             <ThemeToggle />
             <div className="text-right">
               <div className="text-sm text-gray-500 dark:text-gray-400">
                 <span className="hidden md:inline">Trading </span>Bal:
               </div>
-              <div className="text-xl font-bold dark:text-white">{formatCurrency(user?.trading_wallet || 0)}</div>
+              <div className="text-lg font-bold text-gray-900 dark:text-white">
+                {formatCurrency(user?.trading_wallet || 0)}
             </div>
           </div>
         </div>
+
+          {/* Mobile controls */}
+          <div className="md:hidden flex items-center gap-2">
+            <div className="gtranslate_wrapper gtranslate_header" />
+            <ThemeToggle />
+            <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <Menu className="w-5 h-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent>
+                <div className="p-4">
+                  <div className="flex flex-col gap-2">
+                    <Button variant="outline" onClick={() => setIsMobileMenuOpen(false)}>Close</Button>
+            </div>
+            </div>
+              </SheetContent>
+            </Sheet>
+            </div>
+            </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 lg:px-8 py-8">
-        {/* Wallet Overview - Hidden on Mobile */}
-        <div className="hidden md:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <Card className="p-4 bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700">
-            <div className="flex items-center gap-3 mb-2">
-              <BarChart3 className="w-5 h-5 text-blue-600" />
-              <span className="text-sm text-gray-600 dark:text-gray-300">Total Balance</span>
-            </div>
-            <div className="text-2xl font-bold text-gray-900 dark:text-white">{formatCurrency(user?.total_balance || 0)}</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">All wallets combined</div>
-          </Card>
-
-          <Card className="p-4 bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700">
-            <div className="flex items-center gap-3 mb-2">
-              <TrendingUp className="w-5 h-5 text-gray-600" />
-              <span className="text-sm text-gray-600 dark:text-gray-300">Deposit Wallet</span>
-            </div>
-            <div className="text-2xl font-bold text-gray-900 dark:text-white">{formatCurrency(user?.deposit_wallet || 0)}</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">Available for trading</div>
-          </Card>
-
-          <Card className="p-4 bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700">
-            <div className="flex items-center gap-3 mb-2">
-              <TrendingUp className="w-5 h-5 text-green-600" />
-              <span className="text-sm text-gray-600 dark:text-gray-300">Profit Wallet</span>
-            </div>
-            <div className="text-2xl font-bold text-green-600">{formatCurrency(user?.profit_wallet || 0)}</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">Trading profits</div>
-          </Card>
-
-          <Card className="p-4 bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700">
-            <div className="flex items-center gap-3 mb-2">
-              <BarChart3 className="w-5 h-5 text-purple-600" />
-              <span className="text-sm text-gray-600 dark:text-gray-300">Trading Wallet</span>
-            </div>
-            <div className="text-2xl font-bold text-gray-900 dark:text-white">{formatCurrency(user?.trading_wallet || 0)}</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">Active in trades</div>
-          </Card>
-        </div>
-
-        <Tabs defaultValue="trade" className="w-full" onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="trade" className="flex items-center gap-2">
-              <TrendingUp className="w-4 h-4" />
-              <span className="hidden sm:inline">Trade</span>
-            </TabsTrigger>
-            <TabsTrigger value="copy-trade" className="flex items-center gap-2">
-              <span className="hidden md:inline">Expert Traders</span>
-              <CopyIcon className="w-4 h-4 md:hidden" />
-            </TabsTrigger>
-            <TabsTrigger value="positions" className="flex items-center gap-2">
-              <BarChart3 className="w-4 h-4" />
-              <span className="hidden md:inline">Positions</span>
-              <span className="md:hidden">Positions</span>
-            </TabsTrigger>
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto p-4 lg:p-8 grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Left Sidebar */}
+        <aside className="lg:col-span-1">
+          <Card className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+            <h3 className="font-bold text-gray-900 dark:text-white mb-4">Trading Instruments</h3>
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="trade">Trade</TabsTrigger>
+                <TabsTrigger value="copy-trade">Copy Trade</TabsTrigger>
           </TabsList>
-
-          {/* Trade Tab - matches screenshot exactly */}
-          <TabsContent value="trade" className="mt-6">
-            {/* Mobile Section Header */}
-            <div className="md:hidden mb-6">
-              <h2 className="text-xl font-bold text-gray-900">Trade</h2>
-            </div>
-            
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-              {/* Stats Cards */}
-              <Card className="p-4 bg-white dark:bg-gray-800 text-center border-gray-100 dark:border-gray-700">
-                <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 mb-1">Total P&L</div>
-                <div className="text-lg sm:text-xl font-bold text-green-600 mb-1">+$2,456.78</div>
-                <div className="text-xs text-green-600">+12.34%</div>
-              </Card>
-
-              <Card className="p-4 bg-white dark:bg-gray-800 text-center border-gray-100 dark:border-gray-700">
-                <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 mb-1">Open Positions</div>
-                <div className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-1">{positions.length}</div>
-                <div className="text-xs text-green-600">+2</div>
-              </Card>
-
-              <Card className="p-4 bg-white dark:bg-gray-800 text-center border-gray-100 dark:border-gray-700">
-                <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 mb-1">Win Rate</div>
-                <div className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-1">68%</div>
-                <div className="text-xs text-green-600">+5%</div>
-              </Card>
-
-              <Card className="p-4 bg-white dark:bg-gray-800 text-center border-gray-100 dark:border-gray-700">
-                <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 mb-1">Today's P&L</div>
-                <div className="text-lg sm:text-xl font-bold text-green-600 mb-1">+$345.67</div>
-                <div className="text-xs text-green-600">+8.9%</div>
-              </Card>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Select Instrument */}
-              <Card className="p-6 bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700">
-                <h3 className="text-lg font-semibold mb-4 dark:text-white">Select Instrument</h3>
+              <TabsContent value="trade">
                 <div className="space-y-2">
-                  {instruments && instruments.length > 0 ? (
-                    instruments.map((instrument) => (
-                      <div key={instrument.id}>
-                        <div
-                          className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                            selectedInstrument?.id === instrument.id 
-                              ? 'bg-blue-600 text-white' 
-                              : 'bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600'
-                          }`}
+                  {instruments.map(instrument => (
+                    <Button
+                      key={instrument.id}
+                      variant={selectedInstrument?.id === instrument.id ? 'default' : 'ghost'}
+                      className="w-full justify-start text-left"
                           onClick={() => handleInstrumentSelect(instrument)}
                         >
-                          <div className="flex items-center gap-3">
-                            <span className="text-lg">{instrument.icon || '📈'}</span>
-                            <div className="flex-1">
-                              <div className="font-semibold dark:text-white">{instrument.name}</div>
-                              <div className={`text-sm ${
-                                selectedInstrument?.id === instrument.id ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
-                              }`}>
-                                {instrument.description || 'No description'}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        {/* View Symbols Button */}
-                        <div className="mt-2 px-3">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="w-full text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                            onClick={() => handleViewSymbols(instrument)}
-                          >
-                            View Symbols ({symbols.filter(s => s.instrument_id === instrument.id).length})
+                      <TrendingUp className="w-4 h-4 mr-2" />
+                      {instrument.name}
                           </Button>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                      <BarChart3 className="w-12 h-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
-                      <p>No trading instruments available</p>
-                      <p className="text-xs mt-1">Instruments loaded: {instruments?.length || 0}</p>
-                    </div>
-                  )}
-                </div>
-              </Card>
-
-              {/* Select Symbol */}
-              <Card className="p-6 bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700" id="symbols-section">
-                <h3 className="text-lg font-semibold mb-4 dark:text-white">Select Symbol</h3>
-                <div className="space-y-2">
-                  {selectedInstrument ? (
-                    filteredSymbols.length > 0 ? (
-                      filteredSymbols.map((symbol) => (
-                        <div
-                          key={symbol.id}
-                          className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                            selectedSymbol?.id === symbol.id 
-                              ? 'bg-green-600 text-white' 
-                              : 'bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600'
-                          }`}
-                          onClick={() => handleSymbolSelect(symbol)}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className="font-semibold dark:text-white">{symbol.symbol}</div>
-                              <div className={`text-sm ${
-                                selectedSymbol?.id === symbol.id ? 'text-green-100' : 'text-gray-500 dark:text-gray-400'
-                              }`}>
-                                {symbol.name || 'No name'}
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className="font-semibold dark:text-white">{formatCurrency(symbol.current_price || 0)}</div>
-                              <div className="text-xs text-green-600">+1.2%</div>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                        <p>No assets available</p>
-                        <p className="text-xs">for this instrument</p>
-                        <p className="text-xs mt-1">Symbols loaded: {symbols?.length || 0}</p>
-                        <p className="text-xs">Filtered: {filteredSymbols?.length || 0}</p>
-                      </div>
-                    )
-                  ) : (
-                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                      <p>No assets available</p>
-                      <p className="text-xs">Select an instrument first</p>
-                    </div>
-                  )}
-                </div>
-              </Card>
-
-              {/* Trading Chart */}
-              <Card className="p-6 bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700">
-                <h3 className="text-lg font-semibold mb-4 dark:text-white">Trading Chart</h3>
-                <TradingChart symbol={selectedSymbol} />
-
-                {selectedSymbol && (
-                  <div className="mt-6 space-y-4">
-                    <div className="flex gap-2">
-                      <Button 
-                        className="flex-1 bg-green-600 hover:bg-green-700"
-                        onClick={handleBuyClick}
-                      >
-                        BUY
-                      </Button>
-                      <Button 
-                        className="flex-1 bg-red-600 hover:bg-red-700"
-                        onClick={handleSellClick}
-                      >
-                        SELL
-                      </Button>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-lg font-bold">{formatCurrency(selectedSymbol.current_price || 0)}</div>
-                      <div className="text-sm text-gray-500">Current market price</div>
-                    </div>
-                  </div>
-                )}
-              </Card>
+                  ))}
             </div>
           </TabsContent>
-
-          {/* Copy Trade Tab */}
-          <TabsContent value="copy-trade" key="copy-trade" className="mt-6">
-            {/* Mobile Section Header */}
-            <div className="md:hidden mb-6">
-              <h2 className="text-xl font-bold text-gray-900">Expert Trader</h2>
-            </div>
-
-
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {traders && traders.length > 0 ? (
-                traders.map((trader) => (
+              <TabsContent value="copy-trade">
+                <div className="space-y-2">
+                  {traders.map(trader => (
                   <TraderCard 
                     key={trader.id} 
                     trader={trader} 
@@ -1179,46 +997,64 @@ export default function TradingPlatform() {
                     minCopyTradeAmount={minCopyTradeAmount}
                     user={user}
                   />
-                ))
-              ) : (
-                <div className="col-span-full text-center py-12 text-gray-500">
-                  <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                  <p>No expert traders available</p>
-                  <p className="text-sm mt-1">
-                    {isLoading ? 'Loading traders...' : 'Check back later for trading experts'}
-                  </p>
-                  {!isLoading && traders?.length === 0 && (
-                    <Button 
-                      onClick={reloadTradersData} 
-                      variant="outline" 
-                      size="sm" 
-                      className="mt-3"
-                    >
-                      Reload Data
-                    </Button>
-                  )}
-                </div>
-              )}
+                  ))}
             </div>
           </TabsContent>
+            </Tabs>
+          </Card>
 
-          {/* Positions Tab */}
-          <TabsContent value="positions" className="mt-6">
-            <div className="mb-6">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Positions</h2>
-              <p className="text-sm text-gray-500 dark:text-white dark:font-semibold">Monitor and manage your trading positions</p>
-            </div>
+          <Card className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 mt-6">
+            <h3 className="font-bold text-gray-900 dark:text-white mb-4">Social Proof</h3>
+            <SocialProof />
+          </Card>
+        </aside>
 
-            <Tabs defaultValue="open" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="open">Open Positions ({positions.length})</TabsTrigger>
-                <TabsTrigger value="closed">Closed Positions ({closedPositions.length})</TabsTrigger>
+        {/* Main Trading Area */}
+        <section className="lg:col-span-3">
+          <Card className="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
+              {selectedInstrument ? `${selectedInstrument.name} - ${selectedSymbol ? selectedSymbol.symbol : 'Select a Symbol'}` : 'Select an Instrument and Symbol'}
+            </h2>
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="trade">Trade</TabsTrigger>
+                <TabsTrigger value="copy-trade">Copy Trade</TabsTrigger>
               </TabsList>
-
-              <TabsContent value="open" className="mt-0">
-                {positions.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {positions.map((position) => (
+              <TabsContent value="trade">
+                <div className="flex flex-col sm:flex-row gap-4 mb-4">
+                  <Button className="w-full sm:w-auto" onClick={handleBuyClick}>
+                    <Play className="w-4 h-4 mr-2" />
+                    Buy
+                  </Button>
+                  <Button className="w-full sm:w-auto" onClick={handleSellClick}>
+                    <TrendingDown className="w-4 h-4 mr-2" />
+                    Sell
+                  </Button>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-4 mb-4">
+                  <Button className="w-full sm:w-auto" onClick={() => handleViewSymbols(selectedInstrument)}>
+                    <BarChart3 className="w-4 h-4 mr-2" />
+                    View Symbols
+                  </Button>
+                  <Button className="w-full sm:w-auto" onClick={() => setIsModifyModalOpen(true)}>
+                    <Clock className="w-4 h-4 mr-2" />
+                    Modify Position
+                  </Button>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-4 mb-4">
+                  <Button className="w-full sm:w-auto" onClick={() => setIsViewSymbolsModalOpen(true)}>
+                    <Users className="w-4 h-4 mr-2" />
+                    View My Positions
+                  </Button>
+                  <Button className="w-full sm:w-auto" onClick={() => setIsTradeModalOpen(true)}>
+                    <Users className="w-4 h-4 mr-2" />
+                    View Open Positions
+                  </Button>
+                </div>
+              </TabsContent>
+              <TabsContent value="copy-trade">
+                <div className="space-y-2">
+                  {positions.map(position => (
                       <PositionCard 
                         key={position.id} 
                         position={position}
@@ -1228,112 +1064,37 @@ export default function TradingPlatform() {
                       />
                     ))}
                   </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <div className="text-center">
-                      <BarChart3 className="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Open Positions</h3>
-                      <p className="text-gray-500 dark:text-gray-400">No open positions</p>
-                    </div>
-                  </div>
-                )}
-              </TabsContent>
-
-              <TabsContent value="closed" className="mt-0">
-                {closedPositions.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {closedPositions.map((position) => (
-                      <Card key={position.id} className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <Badge variant={position.trade_direction === 'BUY' ? 'default' : 'secondary'} className="text-xs">
-                              {position.trade_direction}
-                            </Badge>
-                            <span className="font-semibold dark:text-white">{position.symbol_code}</span>
-                            <span className="text-xs text-gray-500 dark:text-gray-400">({position.leverage})</span>
-                            <Badge variant="outline" className="text-xs text-gray-600 border-gray-200">
-                              Closed
-                            </Badge>
-                          </div>
-                        </div>
-
-                        <div className="space-y-2 text-sm">
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-300">Amount:</span>
-                            <span className="font-semibold dark:text-white">{formatCurrency(position.investment_amount)}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-300">Entry:</span>
-                            <span className="dark:text-white">{formatCurrency(position.entry_price)}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-300">Exit:</span>
-                            <span className="dark:text-white">{formatCurrency(position.current_price)}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-300">Final P&L:</span>
-                            <span className={`font-semibold ${position.profit_loss_amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              {position.profit_loss_amount >= 0 ? '+' : ''}{formatCurrency(position.profit_loss_amount)} ({position.profit_loss_amount >= 0 ? '+' : ''}{((position.profit_loss_amount / position.investment_amount) * 100).toFixed(2)}%)
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-300">Closed:</span>
-                            <span className="text-xs dark:text-gray-300">{new Date(position.closed_date).toLocaleDateString()}</span>
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <div className="text-center">
-                      <BarChart3 className="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Closed Positions</h3>
-                      <p className="text-gray-500 dark:text-gray-400">No closed positions</p>
-                    </div>
-                  </div>
-                )}
               </TabsContent>
             </Tabs>
-          </TabsContent>
-        </Tabs>
+          </Card>
+        </section>
       </main>
 
+      {/* Modals */}
       <PlaceTradeModal
         isOpen={isTradeModalOpen}
         onClose={() => setIsTradeModalOpen(false)}
         symbol={selectedSymbol}
         tradeDirection={selectedTradeDirection}
-        user={user}
-        onSuccess={() => {
-          loadData(); // Refresh data to show new position
-          showFeedback('success', 'Trade Placed!', 'Your trade has been successfully opened.');
-        }}
-        onFeedback={showFeedback}
+        onTradeSubmitted={loadData}
+        showFeedback={showFeedback}
       />
 
       <ModifyPositionModal
         isOpen={isModifyModalOpen}
         onClose={() => setIsModifyModalOpen(false)}
         position={selectedPosition}
-        onSuccess={() => {
-          loadData();
-          setSelectedPosition(null);
-          showFeedback('success', 'Position Modified!', 'Your position has been successfully updated.');
-        }}
-        onFeedback={showFeedback}
+        onPositionModified={loadData}
+        showFeedback={showFeedback}
       />
 
       <ViewSymbolsModal
         isOpen={isViewSymbolsModalOpen}
         onClose={() => setIsViewSymbolsModalOpen(false)}
         instrument={selectedInstrumentForSymbols}
-        symbols={symbols.filter(s => s.instrument_id === selectedInstrumentForSymbols?.id)}
-        onSelectSymbol={(symbol) => {
-          setSelectedSymbol(symbol);
-          setSelectedInstrument(selectedInstrumentForSymbols);
-          setIsViewSymbolsModalOpen(false);
-        }}
+        symbols={symbols}
+        onSymbolSelect={handleSymbolSelect}
+        showFeedback={showFeedback}
       />
 
       <FeedbackModal
@@ -1343,12 +1104,6 @@ export default function TradingPlatform() {
         title={feedback.title}
         message={feedback.message}
       />
-
-      {/* Social Proof Notifications */}
-      <SocialProof pageType="trading-platform" />
-
-      {/* WhatsApp/LiveChat Integration */}
-      <WhatsAppLiveChatIntegration />
     </div>
   );
 }
