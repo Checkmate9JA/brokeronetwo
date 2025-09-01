@@ -42,6 +42,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { useAuth } from '@/contexts/AuthContext';
+import GoogleTranslate from '../components/GoogleTranslate';
 
 export default function AdminDashboard() {
   const { userProfile } = useAuth();
@@ -262,6 +263,7 @@ export default function AdminDashboard() {
 
               {/* Desktop Navigation */}
               <div className="hidden md:flex items-center gap-3">
+                <GoogleTranslate variant="icon" />
                 <Link to={createPageUrl('SuperAdminDashboard')}>
                   <Button variant="outline" size="sm" className="text-purple-600 border-purple-200 hover:bg-purple-50">
                     <Crown className="w-4 h-4 mr-2" />
@@ -285,7 +287,8 @@ export default function AdminDashboard() {
               </div>
 
               {/* Mobile Navigation */}
-              <div className="md:hidden">
+              <div className="md:hidden flex items-center gap-2">
+                <GoogleTranslate variant="button" />
                 <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
                   <SheetTrigger asChild>
                     <Button variant="ghost" size="icon">

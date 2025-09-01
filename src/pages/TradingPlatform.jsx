@@ -10,6 +10,7 @@ import { createPageUrl } from '@/utils';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import ThemeToggle from '../components/ThemeToggle';
+import GoogleTranslate from '../components/GoogleTranslate';
 import WhatsAppLiveChatIntegration from '../components/WhatsAppLiveChatIntegration';
 
 import PlaceTradeModal from '../components/modals/PlaceTradeModal';
@@ -923,6 +924,7 @@ export default function TradingPlatform() {
           </div>
 
           <div className="flex items-center gap-3">
+            <GoogleTranslate variant="icon" />
             <ThemeToggle />
             <div className="text-right">
               <div className="text-sm text-gray-500 dark:text-gray-400">

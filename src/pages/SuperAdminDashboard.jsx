@@ -49,6 +49,7 @@ import AccountModal from '../components/modals/AccountModal';
 import SocialProofModal from '../components/modals/SocialProofModal';
 import MaintenanceModeControl from '../components/MaintenanceModeControl';
 import WhatsAppLiveChatModal from '../components/modals/WhatsAppLiveChatModal';
+import GoogleTranslate from '../components/GoogleTranslate';
 
 import {
   Sheet,
@@ -381,6 +382,7 @@ export default function SuperAdminDashboard() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-3">
+            <GoogleTranslate variant="icon" />
             <Button
               variant="outline"
               onClick={() => setIsSwitchAppModalOpen(true)}
@@ -416,7 +418,8 @@ export default function SuperAdminDashboard() {
           </div>
 
           {/* Mobile Navigation */}
-          <div className="md:hidden">
+          <div className="md:hidden flex items-center gap-2">
+            <GoogleTranslate variant="button" />
             <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon">
